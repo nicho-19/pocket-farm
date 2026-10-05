@@ -561,21 +561,60 @@
 
   function drawHouseCell(cell, name, roof = WORLD_COLORS.roofHome, prop = 'flowers') {
     const x = cell.x * TILE, y = cell.y * TILE;
-    shadow(x + 24, y + 43, 23, 5);
-    box(x + 4, y + 15, 40, 29, WORLD_COLORS.wall);
-    for (let i = 0; i < 5; i++) pixelLine(x + 7 + i * 8, y + 17, x + 7 + i * 8, y + 42, WORLD_COLORS.wallShade, 0.5);
-    box(x + 1, y + 10, 46, 10, WORLD_COLORS.barkDark);
-    box(x + 7, y + 5, 34, 9, roof);
-    for (let i = 0; i < 4; i++) pixelLine(x + 8, y + 7 + i * 2, x + 40, y + 7 + i * 2, i % 2 ? WORLD_COLORS.roofRidge : WORLD_COLORS.barkDark, 0.5);
-    box(x + 8, y + 4, 32, 2, WORLD_COLORS.roofRidge);
-    box(x + 17, y + 27, 14, 17, WORLD_COLORS.door); box(x + 28, y + 34, 2, 2, WORLD_COLORS.metal);
-    box(x + 6, y + 24, 10, 10, WORLD_COLORS.woodDark); box(x + 8, y + 26, 6, 6, WORLD_COLORS.window); box(x + 9, y + 27, 2, 2, WORLD_COLORS.windowGlow);
-    box(x + 14, y + 43, 21, 4, WORLD_COLORS.plazaEdge);
-    if (prop === 'jar') { box(x + 35, y + 34, 8, 10, WORLD_COLORS.roofBlue); box(x + 36, y + 32, 6, 3, WORLD_COLORS.waterLight); }
-    else if (prop === 'wood') { box(x + 34, y + 37, 11, 4, WORLD_COLORS.barkDark); box(x + 36, y + 33, 9, 4, WORLD_COLORS.barkLight); }
-    else if (prop === 'pot') { box(x + 36, y + 38, 8, 6, WORLD_COLORS.roofRed); box(x + 38, y + 33, 2, 6, WORLD_COLORS.leafGreen); box(x + 41, y + 32, 3, 4, WORLD_COLORS.springFlower); }
-    else { box(x + 36, y + 39, 3, 3, WORLD_COLORS.springFlower); box(x + 41, y + 37, 3, 3, WORLD_COLORS.summerFlower); }
-    label(name, x + 5, y + 3, WORLD_COLORS.woodDark, 10);
+    const left = x - 5, top = y - 13;
+    shadow(x + 27, y + 43, 29, 5);
+    // 石基与灰泥立面均向上、左右的非交互住宅空地外扩，门前格保持完全可读。
+    box(left + 5, y + 36, 53, 8, WORLD_COLORS.plazaEdge);
+    for (let i = 0; i < 6; i++) {
+      const sx = left + 6 + i * 8 + i % 2 * 2;
+      box(sx, y + 37 + i % 2 * 3, 7, 4, i % 3 ? WORLD_COLORS.wallShade : WORLD_COLORS.plazaLight);
+      box(sx + 1, y + 37 + i % 2 * 3, 5, 1, WORLD_COLORS.plazaLight);
+    }
+    box(left + 4, y + 9, 54, 29, WORLD_COLORS.wallShade);
+    box(left + 7, y + 8, 48, 28, WORLD_COLORS.wall);
+    box(left + 8, y + 10, 3, 25, WORLD_COLORS.wallShade);
+    // 深木骨架与右下接触暗边强化3/4体积。
+    box(left + 7, y + 9, 48, 3, WORLD_COLORS.woodDark);
+    box(left + 9, y + 12, 3, 24, WORLD_COLORS.wood);
+    box(left + 50, y + 12, 3, 24, WORLD_COLORS.barkDark);
+    box(left + 11, y + 25, 39, 3, WORLD_COLORS.wood);
+    // 阶梯坡顶与错缝小瓦，暖红主色在不同小屋中保留色相区分。
+    box(left, top + 12, 62, 7, WORLD_COLORS.roofShade);
+    box(left + 4, top + 7, 54, 9, WORLD_COLORS.roofMid);
+    box(left + 9, top + 3, 44, 9, roof);
+    box(left + 15, top, 32, 6, WORLD_COLORS.roofLight);
+    box(left + 17, top - 2, 29, 3, WORLD_COLORS.roofRidge);
+    for (let row = 0; row < 4; row++) for (let tile = 0; tile < 7; tile++) {
+      const tx = left + 5 + tile * 8 + (row % 2) * 4;
+      const ty = top + 5 + row * 3;
+      if (tx > left + 56 - row * 2) continue;
+      box(tx, ty, 5, 2, (tile + row) % 3 ? roof : WORLD_COLORS.roofLight);
+      box(tx + 4, ty + 1, 2, 2, WORLD_COLORS.roofShade);
+    }
+    // 烟囱只保留像素石块，烟雾继续使用既有动态粒子队列。
+    box(left + 45, top - 8, 7, 13, WORLD_COLORS.plazaEdge);
+    box(left + 46, top - 7, 5, 4, WORLD_COLORS.wallShade);
+    box(left + 44, top - 10, 9, 3, WORLD_COLORS.woodDark);
+    // 门、暖窗、花箱与灯笼均在立面内，不占用门前操作格。
+    box(left + 23, y + 18, 16, 20, WORLD_COLORS.woodDark);
+    box(left + 26, y + 20, 11, 18, WORLD_COLORS.door);
+    box(left + 34, y + 29, 2, 2, WORLD_COLORS.metal);
+    box(left + 12, y + 17, 10, 11, WORLD_COLORS.woodDark);
+    box(left + 14, y + 19, 6, 7, WORLD_COLORS.window);
+    box(left + 16, y + 19, 2, 7, WORLD_COLORS.windowGlow);
+    box(left + 14, y + 22, 6, 2, WORLD_COLORS.woodDark);
+    box(left + 11, y + 28, 13, 4, WORLD_COLORS.wood);
+    box(left + 13, y + 26, 2, 3, WORLD_COLORS.springFlower);
+    box(left + 18, y + 25, 2, 4, WORLD_COLORS.summerFlower);
+    box(left + 42, y + 19, 4, 8, WORLD_COLORS.woodDark);
+    box(left + 43, y + 21, 3, 4, WORLD_COLORS.windowGlow);
+    box(left + 21, y + 40, 22, 4, WORLD_COLORS.plazaEdge);
+    box(left + 24, y + 39, 16, 2, WORLD_COLORS.plazaLight);
+    if (prop === 'jar') { box(left + 48, y + 29, 8, 11, WORLD_COLORS.roofBlue); box(left + 49, y + 27, 6, 3, WORLD_COLORS.waterLight); box(left + 50, y + 32, 4, 2, WORLD_COLORS.roofRidge); }
+    else if (prop === 'wood') { box(left + 45, y + 34, 12, 5, WORLD_COLORS.barkDark); box(left + 47, y + 30, 9, 5, WORLD_COLORS.barkLight); pixelLine(left + 47, y + 34, left + 55, y + 31, WORLD_COLORS.woodLight); }
+    else if (prop === 'pot') { box(left + 48, y + 34, 8, 6, WORLD_COLORS.roofRed); box(left + 50, y + 29, 2, 6, WORLD_COLORS.leafGreen); box(left + 53, y + 28, 3, 4, WORLD_COLORS.springFlower); }
+    else { box(left + 48, y + 35, 8, 5, WORLD_COLORS.wood); box(left + 49, y + 32, 2, 3, WORLD_COLORS.springFlower); box(left + 53, y + 31, 2, 4, WORLD_COLORS.summerFlower); }
+    label(name, left + 24, y + 16, WORLD_COLORS.woodDark, 8);
   }
 
   function drawHouses() {
