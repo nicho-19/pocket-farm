@@ -4,15 +4,34 @@
   const F = globalThis.PocketFarm;
   const SAVE_KEY = 'pocket-farm-save-v1';
   const TILE = 48;
+  const RENDER_SCALE = 2;
+  const SCENE_WIDTH = 768;
+  const SCENE_HEIGHT = 576;
   const FIELD_X = 96;
   const FIELD_Y = 96;
   const canvas = document.getElementById('farm');
-  const ctx = canvas.getContext('2d');
+  let ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
-  canvas.width = Math.round(768 * dpr);
-  canvas.height = Math.round(576 * dpr);
-  ctx.scale(dpr, dpr);
-  ctx.imageSmoothingEnabled = false;
+  const sceneContext = ctx;
+  const staticCanvas = document.createElement('canvas');
+  const staticContext = staticCanvas.getContext('2d');
+  let staticKey = '';
+
+  function resizeCanvas() {
+    const bounds = canvas.getBoundingClientRect();
+    const width = Math.round((bounds.width || SCENE_WIDTH) * dpr * RENDER_SCALE);
+    const height = Math.round((bounds.height || SCENE_HEIGHT) * dpr * RENDER_SCALE);
+    if (canvas.width === width && canvas.height === height) return;
+    canvas.width = staticCanvas.width = width;
+    canvas.height = staticCanvas.height = height;
+    sceneContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
+    staticContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
+    sceneContext.imageSmoothingEnabled = true;
+    staticContext.imageSmoothingEnabled = true;
+    staticKey = '';
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
 
   const palette = {
     '春': { grass: '#8eb76b', grassDark: '#75a05d', light: '#b9ce80', sky: '#d7e4b2' },
@@ -269,20 +288,34 @@
   }
 
   function pixelLine(x1, y1, x2, y2, color, size = 1) {
-    const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
-    for (let i = 0; i <= steps; i++) box(x1 + (x2 - x1) * i / (steps || 1), y1 + (y2 - y1) * i / (steps || 1), size, size, color);
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = size / RENDER_SCALE;
+    ctx.lineCap = 'round';
+    ctx.stroke();
   }
 
-  function drawBackground(now) {
+  function drawBackground() {
     const p = palette[F.season(state)];
-    box(0, 0, 768, 576, p.grass);
-    box(0, 0, 768, 67, p.sky);
+    const ground = ctx.createLinearGradient(0, 76, 0, SCENE_HEIGHT);
+    ground.addColorStop(0, p.light);
+    ground.addColorStop(0.4, p.grass);
+    ground.addColorStop(1, p.grassDark);
+    ctx.fillStyle = ground;
+    ctx.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    const sky = ctx.createLinearGradient(0, 0, 0, 75);
+    sky.addColorStop(0, '#f2f1d3');
+    sky.addColorStop(1, p.sky);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, SCENE_WIDTH, 67);
     box(0, 67, 768, 9, p.light);
     box(0, 76, 768, 5, p.grassDark);
     label(`POCKET FARM  /  ${F.season(state)}之田`, 27, 38, '#53754f', 18);
     label(`DAY ${String(state.day).padStart(2, '0')}`, 654, 38, '#53754f', 16);
-    for (let y = 82; y < 575; y += 12) {
-      for (let x = 0; x < 768; x += 12) {
+    for (let y = 82; y < 575; y += 6) {
+      for (let x = 0; x < 768; x += 6) {
         const h = hash(x, y, 1);
         if (h > 0.78) box(x + 3, y + 4, 3, 2, p.light);
         if (h < 0.065) {
@@ -301,17 +334,17 @@
         const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
         if (hash(x, y, 2) > 0.58) box(px + 9, py + 34, 5, 2, p.light);
         if (hash(x, y, 3) > 0.7) box(px + 33, py + 12, 3, 3, p.grassDark);
-        for (let i = 0; i < 7; i++) {
+        for (let i = 0; i < 14; i++) {
           const gx = px + 3 + Math.floor(hash(x, y, 20 + i) * 42);
           const gy = py + 3 + Math.floor(hash(x, y, 30 + i) * 40);
-          box(gx, gy, 2, 2, i % 2 ? '#ffffff22' : '#355f3d35');
+          ctx.fillStyle = i % 2 ? '#ffffff26' : '#355f3d35';
+          ctx.fillRect(gx + 0.5 * (i % 2), gy, 1, 1);
         }
-        const sway = Math.round(Math.sin(now / 680 + x * 1.7 + y * 2.3));
-        for (let i = 0; i < 2; i++) {
+        for (let i = 0; i < 4; i++) {
           const gx = px + 7 + Math.floor(hash(x, y, 40 + i) * 34);
           const gy = py + 12 + Math.floor(hash(x, y, 50 + i) * 30);
-          pixelLine(gx, gy + 4, gx + sway - 2, gy, p.grassDark);
-          pixelLine(gx + 2, gy + 4, gx + sway + 4, gy + 1, p.light);
+          pixelLine(gx, gy + 4, gx - 2.5, gy, p.grassDark);
+          pixelLine(gx + 1.5, gy + 4, gx + 3.5, gy + 0.5, p.light);
         }
         if (hash(x, y, 61) > 0.75) { box(px + 35, py + 32, 4, 3, '#d2c5a0'); box(px + 35, py + 32, 2, 1, '#f1e9c5'); }
         if (hash(x, y, 62) > 0.82) box(px + 17, py + 12, 3, 2, '#f5b4bd');
@@ -328,20 +361,33 @@
     for (let i = 0; i < 18; i++) {
       const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
       if (x > 95 && x < 673 && y > 95 && y < 528) continue;
-      box(x + Math.round(Math.sin(now / 700 + i) * 1), y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
+      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
       box(x + 2, y + 3, 2, 3, '#50824f');
+    }
+  }
+
+  function drawAmbient(now) {
+    const p = palette[F.season(state)];
+    for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+      const px = FIELD_X + x * TILE + 7 + Math.floor(hash(x, y, 40) * 34);
+      const py = FIELD_Y + y * TILE + 12 + Math.floor(hash(x, y, 50) * 30);
+      const sway = Math.sin(now / 680 + x * 1.7 + y * 2.3) * 1.5;
+      pixelLine(px, py + 4, px - 2 + sway, py, p.grassDark, 0.5);
     }
     const cloudX = ((now % 8000) / 8000) * 950 - 150;
     ctx.fillStyle = '#3d5b5540';
     ctx.beginPath(); ctx.ellipse(cloudX, 285, 105, 27, -0.15, 0, Math.PI * 2); ctx.fill();
   }
 
-  function drawTree(x, y, now) {
-    const season = F.season(state);
+  function drawTreeTrunk(x, y) {
     shadow(x + 21, y + 55, 22, 6);
     box(x + 15, y + 20, 9, 38, '#795d45');
     box(x + 17, y + 28, 2, 20, '#9d7650'); box(x + 22, y + 38, 2, 15, '#634735');
     box(x + 8, y + 26, 24, 4, '#795d45');
+  }
+
+  function drawTreeCanopy(x, y, now) {
+    const season = F.season(state);
     const sway = Math.round(Math.sin(now / 840 + x * 0.21) * 1);
     if (season === '冬') {
       box(x + 3 + sway, y + 24, 15, 3, '#eef5ec');
@@ -357,11 +403,19 @@
     }
   }
 
-  function drawPond(now) {
+  function drawPondBase() {
     box(12, 464, 73, 76, '#73997c');
-    box(18, 469, 62, 65, '#73b3bd');
-    box(24, 475, 50, 53, '#85c5c7');
+    const water = ctx.createLinearGradient(18, 469, 80, 534);
+    water.addColorStop(0, '#9dd6d0');
+    water.addColorStop(1, '#5ca4b3');
+    ctx.fillStyle = water;
+    ctx.fillRect(18, 469, 62, 65);
     box(18, 470, 52, 2, '#e4d9ae'); box(19, 527, 56, 2, '#bfd8b9');
+    pixelLine(19, 470.5, 71, 470.5, '#fff2d2', 1);
+    pixelLine(19, 529.5, 75, 529.5, '#d5ecdf', 1);
+  }
+
+  function drawPondRipples(now) {
     const offset = Math.floor(now / 500) % 2 ? 4 : 0;
     box(27 + offset, 488, 19, 2, '#d0e9d9');
     box(48 - offset, 511, 17, 2, '#d0e9d9');
@@ -427,6 +481,8 @@
       box(89, y + 5, 3, 43, '#b89765');
       box(678, y + 5, 3, 43, '#b89765');
     }
+    pixelLine(15, 224.5, 77, 224.5, '#fff0c7');
+    pixelLine(686, 278.5, 755, 278.5, '#dfb980');
   }
 
   function drawPlot(plot, x, y) {
@@ -456,6 +512,8 @@
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
       box(px + 2, py + 3, 2, 41, '#e8f0e9');
     }
+    pixelLine(px + 4.5, py + 7.5, px + 42.5, py + 7.5, plot.watered ? '#af9b7d' : '#d1aa7c');
+    pixelLine(px + 8, py + 16.5, px + 38, py + 16.5, '#d2ad795c');
     if (plot.crop) {
       shadow(px + 24, py + 38, 13, 4);
       drawCrop(ctx, plot.crop, px, py, performance.now());
@@ -470,8 +528,8 @@
     const center = px + 24;
     const paint = (x, y, w, h, color) => { target.fillStyle = color; target.fillRect(Math.round(x), Math.round(y), w, h); };
     const line = (x1, y1, x2, y2, color) => {
-      const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
-      for (let i = 0; i <= steps; i++) paint(x1 + (x2 - x1) * i / (steps || 1), y1 + (y2 - y1) * i / (steps || 1), 1, 1, color);
+      target.beginPath(); target.moveTo(x1, y1); target.lineTo(x2, y2);
+      target.strokeStyle = color; target.lineWidth = 0.5; target.lineCap = 'round'; target.stroke();
     };
     if (progress === 0) {
       paint(center - 6, py + 27, 12, 6, '#a77b53');
@@ -481,6 +539,7 @@
       if (crop.type === 'strawberry') { paint(center - 2, py + 24, 4, 4, '#ae6156'); paint(center + 2, py + 25, 2, 3, '#ebd7a0'); }
       if (crop.type === 'corn') { paint(center - 4, py + 24, 4, 6, '#f6d46b'); paint(center + 2, py + 26, 3, 4, '#f6d46b'); }
       paint(center - 4, py + 27, 2, 1, '#f3d3a0');
+      line(center - 4, py + 30.5, center + 4, py + 30.5, '#f5dba7');
       return;
     }
     if (progress === 1) {
@@ -495,6 +554,8 @@
       if (crop.type === 'pumpkin') line(center - 10, py + 28, center + 11, py + 27, '#426e38');
       if (crop.type === 'strawberry') { paint(center - 7, py + 22, 3, 2, '#a0cb69'); paint(center + 5, py + 20, 3, 2, '#a0cb69'); }
       if (crop.type === 'corn') { paint(center - 1, py + 21, 2, 8, '#a1c66a'); line(center + 4, py + 19, center + 8, py + 17, '#b6d57a'); }
+      line(center - 7, py + 23.5, center - 2, py + 25, '#dbec9b');
+      line(center + 3, py + 22, center + 8, py + 20.5, '#dbec9b');
       return;
     }
     if (crop.type === 'carrot') {
@@ -584,6 +645,10 @@
         line(center + 9, py + 16, center + 13, py + 8, '#b38855');
       }
     }
+    line(center - 10, py + 21.5, center - 3, py + 23, '#d1e89a');
+    line(center + 3, py + 18.5, center + 10, py + 17, '#d1e89a');
+    paint(center - 7, py + 18, 1, 1, '#f1f7c3');
+    paint(center + 8, py + 16, 1, 1, '#f1f7c3');
   }
 
   function drawFarmer(now) {
@@ -600,6 +665,8 @@
     box(x + 22, y + 35 - feet, 10, 4, '#45423f');
     box(x + 8, y + 20, 25, 13, facing === 'up' ? '#426f82' : '#557f9a');
     box(x + 11, y + 22, 18, 2, '#739fb2');
+    pixelLine(x + 12, y + 26.5, x + 16, y + 31, '#315c73');
+    pixelLine(x + 26, y + 24, x + 28, y + 30.5, '#9bc2c6');
     box(x + 5, y + 22 + feet, 5, 10, '#edb881');
     box(x + 32, y + 22 - feet, 5, 10, '#edb881');
     box(x + 12, y + 9, 18, 14, '#e8ae7a');
@@ -608,6 +675,7 @@
     box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, '#b48b56');
     box(x + 12, y, 18, 7, '#ccaa68');
     box(x + 16, y + 2, 11, 1, '#e4c989');
+    for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 1.5, x + 16 + i * 3, y + 5.5, '#efd79a', 0.5);
     if (facing !== 'up') {
       if (facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
       else if (facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
@@ -616,6 +684,9 @@
         box(x + 25, y + 15, 3, 3, '#3c4540');
         box(x + 20, y + 20, 3, 1, '#b97761');
       }
+      const eyeX = facing === 'left' ? x + 13.5 : facing === 'right' ? x + 27.5 : x + 16.5;
+      ctx.fillStyle = '#fff7de'; ctx.fillRect(eyeX, y + 15.5, 0.5, 0.5);
+      if (facing === 'down') ctx.fillRect(x + 25.5, y + 15.5, 0.5, 0.5);
     }
     if (now >= swingUntil) {
       const tx = facing === 'left' ? x + 1 : x + 37;
@@ -642,12 +713,25 @@
   }
 
   function drawScene(now) {
-    drawBackground(now);
-    drawHouse();
-    drawPond(now);
-    drawTree(37, 274, now);
-    drawTree(685, 111, now);
-    drawTree(694, 380, now);
+    const key = `${F.season(state)}:${state.day}:${state.weather}`;
+    if (key !== staticKey) {
+      ctx = staticContext;
+      ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+      drawBackground();
+      drawHouse();
+      drawPondBase();
+      drawTreeTrunk(37, 274);
+      drawTreeTrunk(685, 111);
+      drawTreeTrunk(694, 380);
+      ctx = sceneContext;
+      staticKey = key;
+    }
+    ctx.drawImage(staticCanvas, 0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    drawAmbient(now);
+    drawPondRipples(now);
+    drawTreeCanopy(37, 274, now);
+    drawTreeCanopy(685, 111, now);
+    drawTreeCanopy(694, 380, now);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }

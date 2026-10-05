@@ -48,7 +48,7 @@ h2{font-size:var(--text-md);margin:0;color:var(--wood-dark)}
 @keyframes energy-pulse{50%{opacity:.5}}
 .main-grid{display:grid;grid-template-columns:minmax(0,768px) minmax(275px,1fr);gap:var(--space-5);align-items:start}
 .scene-frame{position:relative;padding:7px;background:var(--cream);border:2px solid var(--wood-light);border-bottom-width:5px;border-radius:var(--radius-md);box-shadow:var(--shadow-high);line-height:0;touch-action:none}
-.scene-frame canvas{display:block;width:100%;height:auto;image-rendering:pixelated;border-radius:4px;touch-action:none}
+.scene-frame canvas{display:block;width:100%;height:auto;image-rendering:auto;border-radius:4px;touch-action:none}
 .tutorial-bubble{position:absolute;top:var(--space-4);left:50%;transform:translateX(-50%);width:max-content;max-width:85%;padding:var(--space-3) var(--space-4);border:2px solid var(--wood-light);border-radius:var(--radius-md);background:var(--cream);box-shadow:var(--shadow-high);line-height:1.5;text-align:center;font-size:var(--text-sm);font-weight:bold;pointer-events:none}
 [hidden]{display:none!important}
 .tool-panel,.side-card{background:var(--surface);border:2px solid var(--wood-light);border-bottom-width:4px;border-radius:var(--radius-md);padding:var(--space-4);margin-top:var(--space-4);box-shadow:var(--shadow-low)}
@@ -107,7 +107,7 @@ kbd{background:var(--cream);border:1px solid var(--line);border-bottom-width:3px
 .close-button{position:absolute;right:var(--space-2);top:6px;width:36px;height:36px;border:2px solid var(--cream);border-radius:50%;background:var(--wood-dark);color:var(--cream);font-size:24px;line-height:1}
 .modal-card p{font-size:var(--text-sm)}
 .codex-row,.order-row{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:var(--space-3);border-top:1px dashed var(--line);padding:var(--space-2) 0;font-size:var(--text-sm)}
-.codex-row canvas{width:48px;height:48px;image-rendering:pixelated}
+.codex-row canvas{width:48px;height:48px;image-rendering:auto}
 .codex-row strong{display:block;font-size:var(--text-md)}
 .order-row{display:flex;justify-content:space-between}
 .tabs{display:flex;gap:var(--space-2);margin:var(--space-3) 0}

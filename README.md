@@ -165,3 +165,24 @@
 - `for file in ./*.js ./*.mjs tests/*.mjs; do node --check "$file" || exit 1; done`：全部 JS/MJS 语法检查通过。
 - `node build-standalone.mjs`：输出“已生成 pocket-farm-standalone.html”。
 - `node tests/standalone-smoke.mjs`：单文件初始化与原交互检查通过；新增断言覆盖 toast 容器及入队、首日季节横幅触发、低体力 HUD 警示类名和提醒。冒烟在 Node 模拟 DOM/Canvas，未做真实浏览器和手机的视觉、触控或帧率实测。
+
+## 第六遍优化：作物通行与画质
+
+### Bug 修复
+
+`farm-logic.js` 的 `move` 原来把目标格含 `crop` 判为不可走，`findPath` 也绕开作物。现以地图边界作为田内通行判定；房屋、水塘、树木和栅栏都位于可移动田地外。玩家能走进、穿过已耕地和任意生长阶段的作物，也能从作物格向四邻离开。`game.js` 的转向优先输入、玩法数值及存档结构未改。
+
+### 画质与分层
+
+渲染坐标仍为 768 × 576、每格 48 × 48，显示尺寸不变。主画布与静态离屏画布的 backstore 均按实际 CSS 尺寸 × 最多 2 倍 DPR × 2 倍内部超采样分配；窗口尺寸变化时重新计算。绘制仍使用原逻辑坐标，但线条可细至 0.5 逻辑像素，新 backstore 上为 1 物理像素。天空、草地和水面使用平滑渐变；草地噪点和草叶加密，作物增加细叶脉和高光，农夫增加眼睛高光、衣褶和帽纹，水岸、屋顶和土块边缘补高光。画布 CSS 改为平滑显示。
+
+离屏静态层包含草地、道路、房屋、栅栏、水岸和树干，仅在季节、天气、日期或画布显示尺寸变化时重绘。每帧先贴静态层，再绘制摆动草叶、云影、树冠、水面涟漪、农田及作物、农夫和粒子；粒子上限仍为 300。没有使用外部资源。
+
+### 第六遍自验（2026-10-05）
+
+- 先新增回归测试：修复前 `node tests/run_tests.mjs` 在播种后 `move` 断言处失败（`false !== true`）；修复后 **27/27 通过**，包含新测试对已耕地、五种作物所有阶段和湿润状态的通行、四邻离开与 BFS 穿行。
+- `for file in ./*.js ./*.mjs tests/*.mjs; do node --check "$file" || exit 1; done`：全部通过，退出码 0。
+- `node build-standalone.mjs`：成功重建 `pocket-farm-standalone.html`。
+- `node tests/standalone-smoke.mjs`：通过，覆盖播种后键盘移动、转向优先、3072 × 2304 与窄屏 1440 × 1080 backstore、逐帧静态层贴图及尺寸变化后按需重绘。连续 60 帧模拟耗时 **15.8 ms，平均 0.26 ms/帧**；v5 记录为 7.19 ms/帧，详见 NOTES.md。
+- `git diff --check`：通过。
+- 无砍项。尚未在真实浏览器或手机上测视觉、触控和实际帧率。

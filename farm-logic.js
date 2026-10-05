@@ -111,7 +111,6 @@
     const x = state.farmer.x + dx;
     const y = state.farmer.y + dy;
     if (!inBounds(x, y)) return result(false, '农场边界，不能再往前走了');
-    if (state.plots[y][x].crop) return result(false, '作物挡住了去路');
     state.farmer.x = x;
     state.farmer.y = y;
     return result(true, '移动', []);
@@ -265,7 +264,7 @@
       if (Math.abs(node.x - targetX) + Math.abs(node.y - targetY) === 1) return node.path;
       for (const [direction, [dx, dy]] of Object.entries(DIRECTIONS)) {
         const x = node.x + dx, y = node.y + dy, key = `${x},${y}`;
-        if (inBounds(x, y) && !seen.has(key) && !state.plots[y][x].crop) {
+        if (inBounds(x, y) && !seen.has(key)) {
           seen.add(key);
           queue.push({ x, y, path: [...node.path, direction] });
         }

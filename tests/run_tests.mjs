@@ -228,13 +228,41 @@ check('过期订单失效并在日志提示', () => {
   assert.ok(farm.orders.every(order => order.deadline > farm.day));
 });
 
-check('BFS 能绕过作物到目标旁，无路时返回空', () => {
+check('锄地播种后可进入作物格、穿过作物并从作物格向四邻离开', () => {
+  const farm = F.createGame();
+  assert.equal(F.act(farm).ok, true);
+  F.selectTool(farm, 'seed');
+  assert.equal(F.act(farm).ok, true);
+  assert.equal(F.move(farm, 'down').ok, true);
+  assert.deepEqual([farm.farmer.x, farm.farmer.y], [5, 5]);
+  for (const crop of Object.keys(F.CROPS)) {
+    for (let progress = 0; progress <= F.CROPS[crop].days; progress++) {
+      const walker = F.createGame();
+      walker.plots[5][5] = { tilled: true, watered: progress % 2 === 0, crop: { type: crop, progress } };
+      assert.equal(F.move(walker, 'down').ok, true, `${crop} 阶段 ${progress}`);
+    }
+  }
+  const tilled = F.createGame();
+  tilled.plots[5][5].tilled = true;
+  assert.equal(F.move(tilled, 'down').ok, true);
+  for (const direction of ['up', 'down', 'left', 'right']) {
+    const walker = F.createGame();
+    walker.plots[4][5] = { tilled: true, watered: true, crop: { type: 'carrot', progress: 3 } };
+    assert.equal(F.move(walker, direction).ok, true, direction);
+  }
+  farm.plots[6][5].crop = { type: 'carrot', progress: 1 };
+  assert.equal(F.move(farm, 'down').ok, true);
+  assert.deepEqual([farm.farmer.x, farm.farmer.y], [5, 6]);
+});
+
+check('BFS 可穿过作物抵达目标旁，地图边界不可穿越', () => {
   const farm = F.createGame();
   farm.plots[4][6].crop = { type: 'carrot', progress: 0 };
   assert.ok(F.findPath(farm, 7, 4)?.length > 0);
   const blocked = F.createGame();
   for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) blocked.plots[4 + dy][5 + dx].crop = { type: 'carrot', progress: 0 };
-  assert.equal(F.findPath(blocked, 9, 8), null);
+  assert.ok(F.findPath(blocked, 9, 8)?.length > 0);
+  assert.equal(F.findPath(blocked, -1, 8), null);
 });
 
 check('升级与饭团按价格生效', () => {

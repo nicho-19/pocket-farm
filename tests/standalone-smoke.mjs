@@ -12,7 +12,11 @@ assert.equal(scripts.length, 2);
 
 const elements = new Map();
 const listeners = {};
-const drawing = { fillRect() {}, fillText() {}, scale() {}, beginPath() {}, ellipse() {}, fill() {}, stroke() {}, strokeRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, imageSmoothingEnabled: false };
+const windowListeners = {};
+let sceneWidth = 768;
+let blits = 0;
+let staticRebuilds = 0;
+const drawing = { fillRect() {}, fillText() {}, scale() {}, clearRect() { staticRebuilds++; }, drawImage() { blits++; }, createLinearGradient() { return { addColorStop() {} }; }, moveTo() {}, lineTo() {}, beginPath() {}, ellipse() {}, fill() {}, stroke() {}, strokeRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, imageSmoothingEnabled: true };
 function element(id) {
   if (!elements.has(id)) elements.set(id, {
     id, style: { setProperty(name, value) { this[name] = value; } }, dataset: {}, hidden: true,
@@ -26,7 +30,7 @@ function element(id) {
     setAttribute() {},
     scrollIntoView() {},
     getContext() { return drawing; },
-    getBoundingClientRect() { return { left: 0, top: 0, width: 768, height: 576 }; },
+    getBoundingClientRect() { return { left: 0, top: 0, width: sceneWidth, height: sceneWidth * 0.75 }; },
     querySelectorAll(selector) {
       if (id !== 'codex-list' || selector !== 'canvas') return [];
       return ['carrot', 'potato', 'pumpkin', 'strawberry', 'corn'].map(type => ({
@@ -38,6 +42,7 @@ function element(id) {
 }
 const document = {
   body: { classList: { add() {}, remove() {} } },
+  createElement(tag) { assert.equal(tag, 'canvas'); return { getContext: () => drawing }; },
   getElementById: element,
   querySelector: element,
   addEventListener(name, handler) { listeners[name] = handler; }
@@ -47,7 +52,7 @@ const storage = new Map();
 let now = 0;
 const context = vm.createContext({
   document,
-  window: { devicePixelRatio: 2, addEventListener() {} },
+  window: { devicePixelRatio: 2, addEventListener(name, handler) { windowListeners[name] = handler; } },
   localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
   performance: { now: () => now },
   requestAnimationFrame: callback => callbacks.push(callback),
@@ -57,6 +62,8 @@ const context = vm.createContext({
   console
 });
 for (const script of scripts) vm.runInContext(script, context, { filename: file });
+assert.equal(element('farm').width, 3072);
+assert.equal(element('farm').height, 2304);
 assert.ok(context.PocketFarm);
 assert.equal(context.PocketFarm.createGame().tutorial, 0);
 const oldSave = context.PocketFarm.createGame();
@@ -104,6 +111,30 @@ for (let i = 0; i < 60; i++) {
   assert.equal(callbacks.length, 1);
 }
 const frameCost = performance.now() - frameStart;
+assert.ok(blits >= 60, '每帧贴静态离屏层');
+assert.equal(staticRebuilds, 1, '同一季节与天气下静态层只绘制一次');
+sceneWidth = 360;
+windowListeners.resize();
+assert.equal(element('farm').width, 1440);
+assert.equal(element('farm').height, 1080);
+callbacks.shift()(now + 16);
+assert.equal(staticRebuilds, 2, '显示尺寸改变后静态层重绘');
+sceneWidth = 768;
+const planted = context.PocketFarm.createGame();
+assert.equal(context.PocketFarm.act(planted).ok, true);
+context.PocketFarm.selectTool(planted, 'seed');
+assert.equal(context.PocketFarm.act(planted).ok, true);
+storage.set('pocket-farm-save-v1', JSON.stringify(planted));
+const plantedContext = vm.createContext({
+  document, window: { devicePixelRatio: 2, addEventListener() {} },
+  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+  performance: { now: () => now }, requestAnimationFrame() {}, setTimeout: callback => { callback(); return 1; },
+  HTMLButtonElement: class {}, confirm: () => true, console
+});
+for (const script of scripts) vm.runInContext(script, plantedContext, { filename: file });
+listeners.keydown({ key: 'ArrowDown', preventDefault() {} });
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 5);
+listeners.keyup({ key: 'ArrowDown' });
 const tired = context.PocketFarm.createGame();
 tired.energy = 11;
 storage.set('pocket-farm-save-v1', JSON.stringify(tired));
@@ -119,4 +150,5 @@ assert.equal(element('energy-item').classList.contains('low-energy'), true);
 assert.match(element('toast-stack').innerHTML, /体力快用完了/);
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
 console.log('新增 UI 断言通过：toast 可入队、换季横幅可触发、低体力 HUD 警示类名与提醒。');
+console.log('播种后移动冒烟通过；3072×2304 与窄屏 1440×1080 backstore、逐帧贴图和静态层按需重绘断言通过。');
 console.log(`模拟 Canvas 连续 60 帧完成：总耗时 ${frameCost.toFixed(1)} ms，平均 ${(frameCost / 60).toFixed(2)} ms/帧。`);
