@@ -41,10 +41,10 @@
   window.addEventListener('resize', resizeCanvas);
 
   const palette = {
-    '春': { grass: '#8eb76b', grassDark: '#75a05d', light: '#b9ce80', sky: '#d7e4b2' },
-    '夏': { grass: '#74ad63', grassDark: '#5d9857', light: '#a8c66a', sky: '#c5dfad' },
-    '秋': { grass: '#b2aa67', grassDark: '#969658', light: '#d1bf77', sky: '#e7d4aa' },
-    '冬': { grass: '#aac1b8', grassDark: '#8aada8', light: '#d8dfd0', sky: '#dfe9e1' }
+    '春': { grass: '#8eb76b', grassDark: '#75a05d', grassDeep: '#4f7f4b', grassMid: '#a7c96e', light: '#b9ce80', sky: '#d7e4b2' },
+    '夏': { grass: '#74ad63', grassDark: '#5d9857', grassDeep: '#315d47', grassMid: '#8ebd68', light: '#a8c66a', sky: '#c5dfad' },
+    '秋': { grass: '#b2aa67', grassDark: '#969658', grassDeep: '#667b50', grassMid: '#c2ad62', light: '#d1bf77', sky: '#e7d4aa' },
+    '冬': { grass: '#aac1b8', grassDark: '#8aada8', grassDeep: '#68777d', grassMid: '#c2d2c7', light: '#d8dfd0', sky: '#dfe9e1' }
   };
   const cropColors = { carrot: '#ef9252', potato: '#d5b481', pumpkin: '#e5a44b', strawberry: '#df514f', corn: '#f4c851' };
   const icons = { hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
@@ -355,6 +355,66 @@
     for (let i = 0; i <= steps; i++) box(x1 + dx * i / steps, y1 + dy * i / steps, width, width, color);
   }
 
+  function drawGrassTile(px, py, x, y, terrain, p) {
+    const base = terrain === 'residential' ? p.light : p.grass;
+    box(px, py, TILE, TILE, base);
+    const variant = Math.floor(hash(x, y, 18) * 3);
+    const patches = [
+      [[5, 7, 10, 4], [31, 30, 12, 5], [17, 39, 8, 3]],
+      [[28, 6, 13, 5], [6, 25, 9, 6], [24, 40, 11, 3]],
+      [[9, 10, 8, 5], [25, 21, 15, 6], [4, 39, 12, 3]]
+    ][variant];
+    patches.forEach((patch, i) => {
+      const [dx, dy, width, height] = patch;
+      box(px + dx, py + dy, width, height, i === 1 ? p.grassMid : p.grassDark);
+      box(px + dx + 2, py + dy, Math.max(2, width - 5), 2, i ? base : p.light);
+    });
+    const clusterCount = 2 + Math.floor(hash(x, y, 140) * 3);
+    for (let i = 0; i < clusterCount; i++) {
+      const gx = px + 6 + Math.floor(hash(x, y, 141 + i) * 35);
+      const gy = py + 13 + Math.floor(hash(x, y, 145 + i) * 27);
+      pixelLine(gx, gy + 5, gx - 3, gy + variant % 2, p.grassDeep);
+      pixelLine(gx + 1, gy + 5, gx + 1, gy - 2, p.grassDark);
+      pixelLine(gx + 3, gy + 5, gx + 5, gy + 1, p.grassMid);
+      if (i % 2) box(gx - 1, gy + 5, 5, 2, p.grassDeep);
+    }
+    if (hash(x, y, 153) > 0.66) {
+      const sx = px + 8 + Math.floor(hash(x, y, 154) * 30);
+      const sy = py + 9 + Math.floor(hash(x, y, 155) * 29);
+      box(sx, sy + 2, 6, 3, WORLD_COLORS.plazaEdge);
+      box(sx + 1, sy, 4, 3, WORLD_COLORS.plazaLight);
+    }
+    const season = F.season(state);
+    if (hash(x, y, 150) > 0.6) {
+      const fx = px + 7 + Math.floor(hash(x, y, 151) * 33), fy = py + 7 + Math.floor(hash(x, y, 152) * 32);
+      const accents = season === '春' ? [WORLD_COLORS.springFlower, WORLD_COLORS.springFlowerLight] : season === '夏' ? [WORLD_COLORS.summerFlower, WORLD_COLORS.summerFlowerLight] : season === '秋' ? [WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnLeafLight] : [WORLD_COLORS.frost, WORLD_COLORS.frostShade];
+      box(fx - 2, fy, 2, 2, accents[0]); box(fx + 2, fy + 1, 2, 2, accents[1]); box(fx, fy + 2, 2, 2, accents[0]);
+    }
+  }
+
+  function drawPathTile(px, py, x, y) {
+    box(px, py, TILE, TILE, WORLD_COLORS.path);
+    const bite = 2 + Math.floor(hash(x, y, 116) * 4);
+    for (let i = 0; i < 4; i++) {
+      const offset = 4 + Math.floor(hash(x, y, 117 + i) * 35);
+      box(px, py + offset, bite + i % 2, 3, i % 2 ? WORLD_COLORS.pathDark : WORLD_COLORS.gravel);
+      box(px + TILE - bite - (i + 1) % 2, py + (offset + 17) % 42, bite + (i + 1) % 2, 3, i % 2 ? WORLD_COLORS.gravel : WORLD_COLORS.pathDark);
+    }
+    box(px + 9, py + 7 + Math.floor(hash(x, y, 121) * 7), 25 + Math.floor(hash(x, y, 122) * 6), 3, WORLD_COLORS.pathLight);
+    box(px + 14, py + 31 + Math.floor(hash(x, y, 123) * 5), 20, 2, WORLD_COLORS.pathDark);
+    for (let i = 0; i < 8; i++) {
+      const gx = px + 7 + Math.floor(hash(x, y, 124 + i) * 34);
+      const gy = py + 5 + Math.floor(hash(x, y, 134 + i) * 38);
+      box(gx, gy, 1 + i % 3, i % 2 + 1, i % 3 ? WORLD_COLORS.gravel : WORLD_COLORS.pathLight);
+    }
+    if ((x + y) % 3 === 0) {
+      const sx = px + 14 + Math.floor(hash(x, y, 146) * 10), sy = py + 18 + Math.floor(hash(x, y, 147) * 10);
+      box(sx, sy + 2, 14, 6, WORLD_COLORS.plazaEdge);
+      box(sx + 2, sy, 10, 5, WORLD_COLORS.plazaLight);
+      box(sx + 3, sy + 1, 6, 2, WORLD_COLORS.wallShade);
+    }
+  }
+
   function drawBackground() {
     const p = palette[F.season(state)];
     const L = F.LAYOUT;
@@ -370,34 +430,9 @@
           box(wx, wy, 5 + i % 3 * 3, 2, i % 2 ? WORLD_COLORS.waterDeep : WORLD_COLORS.waterLight);
         }
       } else if (terrain === 'path' || x === L.gate.x && y >= L.farm.bottom - 1) {
-        box(px, py, TILE, TILE, WORLD_COLORS.path);
-        box(px + 4, py + 8, TILE - 8, 2, WORLD_COLORS.pathLight);
-        pixelLine(px + 1, py + 1, px + 1, py + 47, WORLD_COLORS.pathDark);
-        pixelLine(px + 46, py + 1, px + 46, py + 47, WORLD_COLORS.pathDark);
-        for (let i = 0; i < 7; i++) box(px + 5 + Math.floor(hash(x, y, 120 + i) * 36), py + 5 + Math.floor(hash(x, y, 130 + i) * 38), 2 + i % 2, 2, i % 3 ? WORLD_COLORS.gravel : WORLD_COLORS.pathLight);
+        drawPathTile(px, py, x, y);
       } else {
-        box(px, py, TILE, TILE, terrain === 'residential' ? p.light : p.grass);
-        for (let i = 0; i < 50; i++) {
-          const gx = px + 4 + Math.floor(hash(x, y, 20 + i) * 39);
-          const gy = py + 5 + Math.floor(hash(x, y, 30 + i) * 38);
-          const dotColor = i % 5 ? p.grassDark : p.grass;
-          if (i % 2) box(gx, gy, i % 3 ? 2 : 1, 2 + i % 2, dotColor);
-          else { ctx.beginPath(); ctx.arc(gx, gy, i % 4 ? 0.8 : 1.2, 0, Math.PI * 2); ctx.fillStyle = dotColor; ctx.fill(); }
-        }
-        const clusters = Math.floor(hash(x, y, 140) * 3);
-        for (let i = 0; i < clusters; i++) {
-          const gx = px + 7 + Math.floor(hash(x, y, 141 + i) * 32);
-          const gy = py + 13 + Math.floor(hash(x, y, 145 + i) * 25);
-          pixelLine(gx, gy + 5, gx - 3, gy, p.grassDark, 0.7);
-          pixelLine(gx + 1, gy + 5, gx + 1, gy - 2, p.grassDark, 0.7);
-          pixelLine(gx + 2, gy + 5, gx + 5, gy + 1, p.light, 0.7);
-        }
-        const season = F.season(state);
-        if (hash(x, y, 150) > 0.58) {
-          const fx = px + 7 + Math.floor(hash(x, y, 151) * 33), fy = py + 7 + Math.floor(hash(x, y, 152) * 32);
-          const accents = season === '春' ? [WORLD_COLORS.springFlower, WORLD_COLORS.springFlowerLight] : season === '夏' ? [WORLD_COLORS.summerFlower, WORLD_COLORS.summerFlowerLight] : season === '秋' ? [WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnLeafLight] : [WORLD_COLORS.frost, WORLD_COLORS.frostShade];
-          box(fx - 2, fy, 2, 2, accents[0]); box(fx + 2, fy + 1, 2, 2, accents[1]); box(fx, fy + 2, 2, 2, accents[0]);
-        }
+        drawGrassTile(px, py, x, y, terrain, p);
       }
       if (terrain === 'tree') { drawTreeTrunk(px + 4, py - 8); drawTreeCanopy(px + 4, py - 8, hash(x, y, 165) * 900); }
       const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
@@ -565,15 +600,26 @@
       else { box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373'); }
       return;
     }
-    box(px + 2, py + 4, 44, 41, plot.crop ? WORLD_COLORS.soilPlanted : WORLD_COLORS.soil);
-    box(px + 4, py + 5, 39, 3, WORLD_COLORS.furrowLight);
-    for (const row of [14, 23, 32]) {
-      pixelLine(px + 6, py + row, px + 42, py + row, WORLD_COLORS.furrow, 1.2);
-      pixelLine(px + 8, py + row + 2, px + 39, py + row + 2, WORLD_COLORS.furrowLight, 0.7);
+    box(px + 3, py + 4, 42, 41, plot.crop ? WORLD_COLORS.soilPlanted : WORLD_COLORS.soil);
+    box(px + 5, py + 3, 36, 3, WORLD_COLORS.furrowLight);
+    box(px + 2, py + 8, 3, 31, WORLD_COLORS.furrow);
+    box(px + 43, py + 11, 3, 29, WORLD_COLORS.furrow);
+    const rows = [13, 23, 33];
+    rows.forEach((row, i) => {
+      const stagger = Math.floor(hash(x, y, 66 + i) * 4) - 1;
+      box(px + 6 + stagger, py + row, 36 - stagger, 3, WORLD_COLORS.furrow);
+      box(px + 9 - stagger, py + row + 3, 29 + stagger, 2, WORLD_COLORS.furrowLight);
+      box(px + 7 + (i % 2) * 5, py + row - 2, 8, 2, WORLD_COLORS.soilSpeck);
+    });
+    for (let i = 0; i < 10; i++) {
+      const dx = 7 + Math.floor(hash(x, y, 70 + i) * 33), dy = 8 + Math.floor(hash(x, y, 84 + i) * 32);
+      const color = i % 3 === 0 ? WORLD_COLORS.furrow : i % 3 === 1 ? WORLD_COLORS.soilSpeck : WORLD_COLORS.furrowLight;
+      box(px + dx, py + dy, 2 + i % 3, 1 + (i + 1) % 2, color);
     }
-    for (let i = 0; i < 4; i++) {
-      const dx = 8 + Math.floor(hash(x, y, 70 + i) * 31), dy = 9 + Math.floor(hash(x, y, 80 + i) * 30);
-      box(px + dx, py + dy, 4, 2, WORLD_COLORS.soilSpeck);
+    for (let i = 0; i < 2; i++) {
+      const dx = 11 + Math.floor(hash(x, y, 98 + i) * 23), dy = 10 + Math.floor(hash(x, y, 102 + i) * 24);
+      box(px + dx, py + dy, 6, 3, WORLD_COLORS.furrow);
+      box(px + dx + 1, py + dy, 3, 1, WORLD_COLORS.soilSpeck);
     }
     if (F.season(state) === '冬') {
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
