@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>口袋田园</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="page">
+    <header class="masthead">
+      <div><span class="eyebrow">一方小田 · 四季慢生活</span><h1>口袋田园 <span>✿</span></h1></div>
+      <button id="new-game" class="quiet-button" type="button">新游戏</button>
+    </header>
+    <section class="status-bar" aria-label="农场状态">
+      <div class="status-item"><span>日期</span><strong id="date"></strong></div>
+      <div class="status-item"><span>天气</span><strong id="weather"></strong></div>
+      <div class="status-item"><span>金币</span><strong id="gold"></strong></div>
+      <div class="status-item energy-item"><span>体力 <b id="energy-text"></b></span><div class="energy-track"><div id="energy-fill"></div></div></div>
+    </section>
+    <main class="main-grid">
+      <section class="play-area" aria-label="农场">
+        <div class="scene-frame"><canvas id="farm" width="768" height="576" aria-label="口袋田园农场画面"></canvas></div>
+        <div class="tool-panel">
+          <div class="panel-heading"><h2>农具与种子</h2><span>按 1–4 切换工具</span></div>
+          <div id="tools" class="tools"></div>
+          <div id="crop-options" class="crop-options"></div>
+        </div>
+        <p id="hint" class="hint" role="status"></p>
+      </section>
+      <aside class="sidebar">
+        <section class="side-card intro-card">
+          <span class="eyebrow">今天的农事</span>
+          <h2>把小日子种出来。</h2>
+          <p>移动到地块旁，面向它，依次开垦、播种、浇水。睡一觉，等待收成。</p>
+          <div class="key-help"><kbd>W A S D</kbd><span>移动 / 转向</span><kbd>空格</kbd><span>对前方操作</span></div>
+          <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button>
+        </section>
+        <section class="side-card">
+          <div class="panel-heading"><h2>背包</h2><span>收获后存放在这里</span></div>
+          <div id="bag" class="bag-list"></div>
+        </section>
+        <section class="side-card shop-card">
+          <div class="panel-heading"><h2>村口商店</h2><span>买种子，卖收成</span></div>
+          <div id="shop" class="shop-list"></div>
+          <button id="sell-all" class="sell-button" type="button">出货箱 · 全部卖出</button>
+        </section>
+        <section class="side-card log-card">
+          <div class="panel-heading"><h2>田园日记</h2><span>最近发生的事</span></div>
+          <ul id="log" aria-live="polite"></ul>
+        </section>
+      </aside>
+    </main>
+    <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
+  </div>
+  <script src="farm-logic.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
