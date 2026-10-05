@@ -416,6 +416,55 @@
     }
   }
 
+  function drawPondTile(px, py, x, y, pond) {
+    const edgeLeft = x === pond.left, edgeRight = x === pond.right;
+    const edgeTop = y === pond.top, edgeBottom = y === pond.bottom;
+    box(px, py, TILE, TILE, WORLD_COLORS.waterDeep);
+    box(px + 3, py + 3, 42, 42, WORLD_COLORS.waterMid);
+    if (edgeLeft) { box(px, py, 8, TILE, WORLD_COLORS.waterLight); box(px + 7, py + 2, 4, 44, WORLD_COLORS.water); }
+    if (edgeRight) { box(px + 40, py, 8, TILE, WORLD_COLORS.waterLight); box(px + 37, py + 2, 4, 44, WORLD_COLORS.water); }
+    if (edgeTop) { box(px, py, TILE, 8, WORLD_COLORS.waterLight); box(px + 2, py + 7, 44, 4, WORLD_COLORS.water); }
+    if (edgeBottom) { box(px, py + 40, TILE, 8, WORLD_COLORS.waterLight); box(px + 2, py + 37, 44, 4, WORLD_COLORS.water); }
+    for (let i = 0; i < 5; i++) {
+      const wx = px + 5 + Math.floor(hash(x, y, 101 + i) * 34);
+      const wy = py + 8 + Math.floor(hash(x, y, 111 + i) * 30);
+      const width = 4 + i % 3 * 3;
+      box(wx, wy, width, i % 2 + 1, i % 2 ? WORLD_COLORS.water : WORLD_COLORS.waterLight);
+      if (i === 1 || i === 4) box(wx + 2, wy - 2, Math.max(2, width - 4), 1, WORLD_COLORS.waterGlint);
+    }
+    // 荷叶只占水面小部分，不改变或遮挡钓点交互语义。
+    if (hash(x, y, 178) > 0.78 && !F.RESOURCE_NODES.some(node => node.kind === 'fish' && node.x === x && node.y === y)) {
+      const lx = px + 10 + Math.floor(hash(x, y, 179) * 22), ly = py + 15 + Math.floor(hash(x, y, 180) * 17);
+      box(lx + 2, ly, 10, 2, WORLD_COLORS.leafLight);
+      box(lx, ly + 2, 14, 6, WORLD_COLORS.leafGreen);
+      box(lx + 7, ly + 2, 3, 4, WORLD_COLORS.waterMid);
+      if ((x + y) % 2) { box(lx + 4, ly - 3, 2, 3, WORLD_COLORS.springFlower); box(lx + 2, ly - 2, 6, 2, WORLD_COLORS.springFlowerLight); }
+    }
+  }
+
+  function drawShoreTile(px, py, x, y, pond) {
+    const west = x === pond.left - 1, east = x === pond.right + 1;
+    const north = y === pond.top - 1, south = y === pond.bottom + 1;
+    if (west) { box(px + 38, py + 3, 10, 42, WORLD_COLORS.sand); box(px + 43, py + 5, 5, 38, WORLD_COLORS.sandDark); }
+    if (east) { box(px, py + 3, 10, 42, WORLD_COLORS.sand); box(px, py + 5, 5, 38, WORLD_COLORS.sandDark); }
+    if (north) { box(px + 3, py + 38, 42, 10, WORLD_COLORS.sand); box(px + 5, py + 43, 38, 5, WORLD_COLORS.sandDark); }
+    if (south) { box(px + 3, py, 42, 10, WORLD_COLORS.sand); box(px + 5, py, 38, 5, WORLD_COLORS.sandDark); }
+    const horizontal = north || south;
+    for (let i = 0; i < 2; i++) {
+      const sx = px + (horizontal ? 9 + i * 21 : west ? 36 : 3);
+      const sy = py + (horizontal ? north ? 35 : 5 : 10 + i * 22);
+      box(sx, sy + 2, horizontal ? 10 : 7, horizontal ? 5 : 9, WORLD_COLORS.stoneDark);
+      box(sx + 2, sy, horizontal ? 7 : 5, horizontal ? 4 : 6, WORLD_COLORS.stoneLight);
+    }
+    const reeds = 2 + Math.floor(hash(x, y, 160) * 2);
+    for (let i = 0; i < reeds; i++) {
+      const rx = horizontal ? px + 12 + i * 13 : px + (west ? 39 : 7);
+      const ry = horizontal ? py + (north ? 42 : 8) : py + 17 + i * 8;
+      pixelLine(rx, ry, rx + (i % 2 ? 2 : -2), ry - 12, WORLD_COLORS.leafGreen);
+      box(rx + (i % 2 ? 1 : -3), ry - 15, 4, 5, WORLD_COLORS.autumnLeafLight);
+    }
+  }
+
   function drawBackground() {
     const p = palette[F.season(state)];
     const L = F.LAYOUT;
@@ -424,12 +473,7 @@
       const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
       const terrain = F.terrainAt(x, y);
       if (terrain === 'pond') {
-        box(px, py, TILE, TILE, WORLD_COLORS.water);
-        for (let i = 0; i < 5; i++) {
-          const wx = px + 3 + Math.floor(hash(x, y, 101 + i) * 38);
-          const wy = py + 5 + Math.floor(hash(x, y, 111 + i) * 34);
-          box(wx, wy, 5 + i % 3 * 3, 2, i % 2 ? WORLD_COLORS.waterDeep : WORLD_COLORS.waterLight);
-        }
+        drawPondTile(px, py, x, y, L.pond);
       } else if (terrain === 'path' || x === L.gate.x && y >= L.farm.bottom - 1) {
         drawPathTile(px, py, x, y);
       } else {
@@ -438,16 +482,7 @@
       if (terrain === 'tree') drawTree(px + 4, py - 8, x, y);
       const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
         (y === L.pond.top - 1 || y === L.pond.bottom + 1) && x >= L.pond.left && x <= L.pond.right;
-      if (shore) {
-        box(px + 28, py + 7, 15, 34, WORLD_COLORS.sand);
-        box(px + 40, py + 7, 3, 34, WORLD_COLORS.sandDark);
-        const reeds = 3 + Math.floor(hash(x, y, 160) * 3);
-        for (let i = 0; i < reeds; i++) {
-          const rx = px + 25 + i * 4;
-          pixelLine(rx, py + 40, rx + (i % 2 ? 2 : -2), py + 15 + i % 3 * 3, WORLD_COLORS.leafGreen, 1.2);
-          box(rx - 2 + (i % 2 ? 2 : -2), py + 12 + i % 3 * 3, 4, 6, WORLD_COLORS.autumnLeafLight);
-        }
-      }
+      if (shore) drawShoreTile(px, py, x, y, L.pond);
     }
     // 村口道路向画面南侧继续，村牌仅作装饰。
     box(L.gate.x * TILE + 5, L.gate.y * TILE, TILE - 10, TILE, WORLD_COLORS.path);
@@ -542,8 +577,10 @@
       const py = (L.top + 1 + i % 2) * TILE;
       const age = (now + i * 400) % 1200 / 1200;
       ctx.globalAlpha = 1 - age;
-      ctx.beginPath(); ctx.ellipse(px, py, 3 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
+      const width = 5 + Math.floor(age * 17), half = Math.floor(width / 2);
+      pixelLine(px - half, py, px - 3, py, WORLD_COLORS.waterGlint);
+      pixelLine(px + 3, py, px + half, py, WORLD_COLORS.waterGlint);
+      if (width > 12) { pixelLine(px - half + 3, py - 2, px - 1, py - 2, WORLD_COLORS.waterLight); pixelLine(px + 1, py - 2, px + half - 3, py - 2, WORLD_COLORS.waterLight); }
     }
     for (let y = Math.max(L.top, visible.top); y <= Math.min(L.bottom, visible.bottom); y++) for (let x = Math.max(L.left, visible.left); x <= Math.min(L.right, visible.right); x++) if (hash(x, y, 170) > 0.28) {
       const phase = (Math.sin(now / 720 + hash(x, y, 171) * 8) + 1) / 2;
@@ -573,8 +610,10 @@
         else { box(x + 11, y + 37, 9, 4, WORLD_COLORS.stoneDark); box(x + 27, y + 34, 12, 6, WORLD_COLORS.stoneMid); box(x + 29, y + 34, 7, 2, WORLD_COLORS.stoneLight); }
       } else {
         const age = now % 1100 / 1100; ctx.globalAlpha = status.charges ? 0.85 : 0.2;
-        ctx.beginPath(); ctx.ellipse(x + 24, y + 25, 5 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2); ctx.strokeStyle = '#e7f4e4'; ctx.stroke();
-        if (status.charges) { box(x + 22, y + 18, 4, 8, '#f4eee2'); box(x + 22, y + 17, 4, 4, '#d94e49'); }
+        const width = 6 + Math.floor(age * 16);
+        pixelLine(x + 24 - width, y + 25, x + 20, y + 25, WORLD_COLORS.waterGlint);
+        pixelLine(x + 28, y + 25, x + 24 + width, y + 25, WORLD_COLORS.waterGlint);
+        if (status.charges) { box(x + 22, y + 18, 4, 8, WORLD_COLORS.springFlowerLight); box(x + 22, y + 17, 4, 4, WORLD_COLORS.berry); }
         ctx.globalAlpha = 1;
       }
     }
