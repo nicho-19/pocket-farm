@@ -12,7 +12,7 @@ assert.equal(scripts.length, 2);
 
 const elements = new Map();
 const listeners = {};
-const drawing = { fillRect() {}, fillText() {}, scale() {}, beginPath() {}, ellipse() {}, fill() {}, strokeRect() {}, imageSmoothingEnabled: false };
+const drawing = { fillRect() {}, fillText() {}, scale() {}, beginPath() {}, ellipse() {}, fill() {}, stroke() {}, strokeRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, imageSmoothingEnabled: false };
 function element(id) {
   if (!elements.has(id)) elements.set(id, {
     id, style: {}, dataset: {}, hidden: true,
@@ -80,4 +80,12 @@ element('.dpad').on_pointerup({ pointerId: 1 });
 element('orders-button').on_click();
 assert.equal(element('orders-panel').hidden, false);
 element('close-orders').on_click();
+const frameStart = performance.now();
+for (let i = 0; i < 60; i++) {
+  now += 1000 / 60;
+  callbacks.shift()(now);
+  assert.equal(callbacks.length, 1);
+}
+const frameCost = performance.now() - frameStart;
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
+console.log(`模拟 Canvas 连续 60 帧完成：总耗时 ${frameCost.toFixed(1)} ms，平均 ${(frameCost / 60).toFixed(2)} ms/帧。`);

@@ -30,3 +30,11 @@ WebAudio 在首次键盘或指针交互时才创建 `AudioContext`，振荡器�
 - 本轮 Codex 运行在收尾阶段遇到模型容量报错（Selected model is at capacity），未留下逐节汇报与 README 更新；代码与测试实际已完成，README 的 v3 小节由助手在独立复验后补写。
 - 复验方法：重跑 26 项逻辑测试与单文件冒烟；用记录型 DOM/Canvas 测试台加载真实 game.js，实测转向优先（只转身不位移）、按住移动、过夜生成订单，均通过。
 - 可选项「乌鸦/稻草人」本轮未实现，已在 README 注明。
+
+## 第四遍实现与自验
+
+本轮只改表现层。`farm-logic.js`、存档结构和 `pocket-farm-save-v1` 键未改，v1/v2 迁移和 v3 存档沿用原逻辑。背景细节以坐标哈希固定位置，摆动只改变最多 1px 的偏移。统一 `shadow` 在入参坐标上向右下各偏移 3px；水塘涟漪、树冠、烟雾、云影、成熟闪光、天气、工具动作、水滴、收获物与过夜星空全部由现有 rAF 主循环驱动。`tickInput` 仍在每帧最先执行。面板和工具图标使用 CSS 动画，体力条使用 CSS 宽度缓动；金币数字在 rAF 内按 300ms 三次方缓出插值。
+
+`addParticle` 在入队前检查长度；达到 300 个时丢弃最旧粒子。雨天约每 35ms 入队 2 条雨丝，冬季同频入队 2 片雪花；雪花落地消失，雨丝落地产生短寿命溅点。烟雾、闪光也走同一队列。过夜星星为临时绘制的 20 个点，不额外占用粒子队列。页面隐藏后当前 rAF 回调结束即不再排下一帧，恢复可见时重新排帧，无额外计时器。
+
+实际运行 `node tests/run_tests.mjs`，26 项全部通过；对根目录及 `tests/` 内全部 JS/MJS 执行 `node --check`，全部通过；`node build-standalone.mjs` 成功重建；`node tests/standalone-smoke.mjs` 通过。冒烟脚本新增 Canvas `stroke/save/restore/translate/rotate` 空实现，并连续执行 60 帧来检查动画帧没有抛错。模拟帧计时由 Node `performance.now()` 测量 60 次 rAF 回调的总耗时，再除以 60；最终自验为总计 **437.1 ms、平均 7.28 ms/帧**，低于 60 FPS 的 16.67 ms 帧预算。它能反映这台机器上 JS 绘制逻辑的开销，不能代表浏览器实际合成或手机帧率。真实浏览器视觉和触控尚未检查。

@@ -31,10 +31,17 @@
   let swingUntil = 0;
   let sleepStart = 0;
   let sleepPending = false;
-  let rainUntil = 0;
   let goldUntil = 0;
   let lastSmoke = 0;
   let lastRain = 0;
+  let lastSpark = 0;
+  let goldDisplay = state.gold;
+  let goldFrom = state.gold;
+  let goldStart = 0;
+  let toolBounce = '';
+  let bounceUntil = 0;
+  let swingTool = 'hoe';
+  let waterArc = null;
   let audio = null;
   let muted = false;
   let shake = null;
@@ -57,6 +64,7 @@
   }
 
   function handle(outcome, changed) {
+    if (state.gold !== goldDisplay && !goldStart) { goldFrom = goldDisplay; goldStart = performance.now(); }
     document.getElementById('hint').textContent = outcome.message;
     document.getElementById('hint').classList.toggle('error', !outcome.ok);
     if (outcome.ok && changed) {
@@ -102,6 +110,7 @@
   }
 
   function addParticle(x, y, vx, vy, life, color, kind) {
+    if (particles.length >= 300) particles.shift();
     particles.push({ x, y, vx, vy, life, age: 0, color, kind });
   }
 
@@ -115,13 +124,16 @@
     sound(outcome.ok ? outcome.tool : 'error');
     if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };
     if (outcome.ok) {
-      swingUntil = performance.now() + 150;
+      swingUntil = performance.now() + 200;
+      swingTool = outcome.tool;
       const x = FIELD_X + target.x * TILE + 24;
       const y = FIELD_Y + target.y * TILE + 20;
-      if (outcome.tool === 'water') for (let i = 0; i < 5; i++) addParticle(x + (i - 2) * 5, y, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
+      if (outcome.tool === 'water') {
+        waterArc = { x: FIELD_X + state.farmer.x * TILE + 24, y: FIELD_Y + state.farmer.y * TILE + 18, toX: x, toY: y, until: performance.now() + 200 };
+      }
       if (outcome.tool === 'scythe') {
         addParticle(x, y, 0, -0.055, 600, '#fff5c2', 'text');
-        for (let i = 0; i < 4; i++) addParticle(x, y, (680 - x) / 540 + (i - 2) * 0.03, (24 - y) / 540, 540, cropColors[harvested] || '#e8c373', 'spark');
+        addParticle(x, y, 0, 0, 530, cropColors[harvested] || '#e8c373', 'harvest');
       }
     }
     handle(outcome, true);
@@ -196,12 +208,17 @@
 
   function shadow(x, y, rx, ry) {
     ctx.beginPath();
-    ctx.ellipse(Math.round(x), Math.round(y), rx, ry, 0, 0, Math.PI * 2);
+    ctx.ellipse(Math.round(x + 3), Math.round(y + 3), rx, ry, 0, 0, Math.PI * 2);
     ctx.fillStyle = '#293c3655';
     ctx.fill();
   }
 
-  function drawBackground() {
+  function pixelLine(x1, y1, x2, y2, color, size = 1) {
+    const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+    for (let i = 0; i <= steps; i++) box(x1 + (x2 - x1) * i / (steps || 1), y1 + (y2 - y1) * i / (steps || 1), size, size, color);
+  }
+
+  function drawBackground(now) {
     const p = palette[F.season(state)];
     box(0, 0, 768, 576, p.grass);
     box(0, 0, 768, 67, p.sky);
@@ -229,31 +246,59 @@
         const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
         if (hash(x, y, 2) > 0.58) box(px + 9, py + 34, 5, 2, p.light);
         if (hash(x, y, 3) > 0.7) box(px + 33, py + 12, 3, 3, p.grassDark);
+        for (let i = 0; i < 7; i++) {
+          const gx = px + 3 + Math.floor(hash(x, y, 20 + i) * 42);
+          const gy = py + 3 + Math.floor(hash(x, y, 30 + i) * 40);
+          box(gx, gy, 2, 2, i % 2 ? '#ffffff22' : '#355f3d35');
+        }
+        const sway = Math.round(Math.sin(now / 680 + x * 1.7 + y * 2.3));
+        for (let i = 0; i < 2; i++) {
+          const gx = px + 7 + Math.floor(hash(x, y, 40 + i) * 34);
+          const gy = py + 12 + Math.floor(hash(x, y, 50 + i) * 30);
+          pixelLine(gx, gy + 4, gx + sway - 2, gy, p.grassDark);
+          pixelLine(gx + 2, gy + 4, gx + sway + 4, gy + 1, p.light);
+        }
+        if (hash(x, y, 61) > 0.75) { box(px + 35, py + 32, 4, 3, '#d2c5a0'); box(px + 35, py + 32, 2, 1, '#f1e9c5'); }
+        if (hash(x, y, 62) > 0.82) box(px + 17, py + 12, 3, 2, '#f5b4bd');
         box(px, py, TILE, 1, '#ffffff0a');
         box(px, py, 1, TILE, '#ffffff0a');
       }
     }
     // 固定坐标的花丛和从家门到田边的石板路。
-    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) box(x, y, 11, 7, '#d5c5a1');
+    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) {
+      const w = 9 + Math.floor(hash(x, y, 4) * 5), h = 6 + Math.floor(hash(x, y, 5) * 3);
+      box(x, y, w, h, '#aa9672'); box(x + 1, y, w - 2, h - 1, '#d5c5a1');
+      box(x + w, y + h - 2, 2, 3, p.grassDark);
+    }
     for (let i = 0; i < 18; i++) {
       const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
       if (x > 95 && x < 673 && y > 95 && y < 528) continue;
-      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
+      box(x + Math.round(Math.sin(now / 700 + i) * 1), y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
       box(x + 2, y + 3, 2, 3, '#50824f');
     }
+    const cloudX = ((now % 8000) / 8000) * 950 - 150;
+    ctx.fillStyle = '#3d5b5540';
+    ctx.beginPath(); ctx.ellipse(cloudX, 285, 105, 27, -0.15, 0, Math.PI * 2); ctx.fill();
   }
 
-  function drawTree(x, y) {
+  function drawTree(x, y, now) {
     const season = F.season(state);
+    shadow(x + 21, y + 55, 22, 6);
     box(x + 15, y + 20, 9, 38, '#795d45');
+    box(x + 17, y + 28, 2, 20, '#9d7650'); box(x + 22, y + 38, 2, 15, '#634735');
     box(x + 8, y + 26, 24, 4, '#795d45');
+    const sway = Math.round(Math.sin(now / 840 + x * 0.21) * 1);
     if (season === '冬') {
-      box(x + 3, y + 24, 15, 3, '#eef5ec');
-      box(x + 23, y + 20, 15, 3, '#eef5ec');
+      box(x + 3 + sway, y + 24, 15, 3, '#eef5ec');
+      box(x + 23 + sway, y + 20, 15, 3, '#eef5ec');
     } else {
       const color = { '春': '#e7a5b1', '夏': '#5e9d58', '秋': '#dfbd62' }[season];
-      box(x + 4, y + 8, 32, 28, color);
-      box(x + 11, y, 19, 40, color);
+      const dark = { '春': '#b98099', '夏': '#397749', '秋': '#aa8748' }[season];
+      box(x + 4 + sway, y + 8, 32, 28, dark);
+      box(x + 11 + sway, y, 19, 40, dark);
+      box(x + 8 + sway, y + 5, 19, 12, color);
+      box(x + 17 + sway, y + 18, 19, 12, color);
+      box(x + 4 + sway, y + 22, 14, 10, color);
     }
   }
 
@@ -261,9 +306,17 @@
     box(12, 464, 73, 76, '#73997c');
     box(18, 469, 62, 65, '#73b3bd');
     box(24, 475, 50, 53, '#85c5c7');
+    box(18, 470, 52, 2, '#e4d9ae'); box(19, 527, 56, 2, '#bfd8b9');
     const offset = Math.floor(now / 500) % 2 ? 4 : 0;
     box(27 + offset, 488, 19, 2, '#d0e9d9');
     box(48 - offset, 511, 17, 2, '#d0e9d9');
+    for (let i = 0; i < 2; i++) {
+      const age = (now + i * 600) % 1200 / 1200;
+      ctx.globalAlpha = 1 - age;
+      ctx.beginPath(); ctx.ellipse(48, 500, 3 + age * 23, 2 + age * 10, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawHouse() {
@@ -271,11 +324,18 @@
     box(9, 154, 74, 75, '#735849');
     box(14, 162, 65, 62, '#e5c78a');
     for (let i = 0; i < 9; i++) box(5 + i * 9, 150 - Math.min(i, 8 - i) * 7, 12, 7, '#895c48');
+    for (let row = 0; row < 3; row++) for (let i = 0; i < 7; i++) {
+      const tx = 13 + i * 9 + (row % 2 ? 4 : 0), ty = 128 + row * 8;
+      if (ty > 150 - Math.min(i + 1, 7 - i) * 6) continue;
+      box(tx, ty, 7, 1, '#bd8863'); box(tx + 7, ty, 1, 5, '#6e493b');
+    }
     box(14, 119, 15, 24, '#b17e5b');
-    box(29, 180, 18, 18, '#6e9baa');
+    box(29, 180, 18, 18, '#ffe3a0');
+    box(31, 182, 14, 14, '#ebc878');
     box(37, 180, 2, 18, '#f9e0a1');
     box(29, 188, 18, 2, '#f9e0a1');
     box(55, 189, 17, 35, '#856348');
+    box(58, 191, 2, 29, '#ab8259');
     box(66, 205, 3, 3, '#eecb72');
     box(14, 227, 64, 5, '#c1a36d');
     label('HOME', 21, 252, '#eff1cd', 13);
@@ -287,20 +347,28 @@
     box(712, 286, 20, 15, '#443d32');
     label('SHIP', 699, 357, '#f2eecf', 13);
     box(15, 379, 11, 42, '#715e47');
+    shadow(20, 419, 15, 4);
+    box(18, 385, 2, 25, '#a6845b');
     box(8, 363, 28, 25, '#537f4e');
     box(15, 353, 22, 25, '#679658');
     box(1, 384, 28, 16, '#5a8a50');
     box(719, 455, 10, 35, '#705e46');
+    shadow(724, 489, 20, 5);
+    box(722, 459, 2, 24, '#9c7a54');
     box(701, 435, 45, 32, '#5d8a51');
     box(710, 422, 29, 31, '#70a15a');
     for (let x = 85; x < 680; x += 48) {
+      shadow(x + 5, 90, 6, 3); shadow(x + 5, 552, 6, 3);
       box(x, 73, 5, 16, '#806c4a');
       box(x, 536, 5, 16, '#806c4a');
+      box(x + 1, 74, 1, 12, '#ad8860'); box(x + 1, 538, 1, 10, '#ad8860');
       if (x < 660) { box(x, 78, 45, 3, '#b89765'); box(x, 542, 45, 3, '#b89765'); }
+      if (x < 660) { box(x + 4, 79, 37, 1, '#d2b07c'); box(x + 4, 543, 37, 1, '#d2b07c'); }
     }
     for (let y = 91; y < 535; y += 48) {
       box(87, y, 5, 16, '#806c4a');
       box(677, y, 5, 16, '#806c4a');
+      box(88, y + 1, 1, 13, '#ad8860'); box(678, y + 1, 1, 13, '#ad8860');
       box(89, y + 5, 3, 43, '#b89765');
       box(678, y + 5, 3, 43, '#b89765');
     }
@@ -313,12 +381,21 @@
     box(px + 4, py + 5, 39, 3, plot.watered ? '#755849' : '#a17855');
     box(px + 7, py + 14, 34, 2, plot.watered ? '#4e3e38' : '#76533f');
     box(px + 5, py + 29, 36, 2, plot.watered ? '#4e3e38' : '#76533f');
+    box(px + 8, py + 16, 30, 1, plot.watered ? '#856a53' : '#bb8e65');
+    box(px + 6, py + 31, 34, 1, plot.watered ? '#856a53' : '#bb8e65');
     if (plot.watered) {
       box(px + 34, py + 20, 5, 3, '#789da1');
       box(px + 10, py + 37, 4, 2, '#789da1');
+      box(px + 22, py + 24, 6, 2, '#9ec9c2');
+      box(px + 35, py + 20, 2, 1, '#c6dfd2');
+      box(px + 11, py + 37, 2, 1, '#c6dfd2');
     } else {
       box(px + 11, py + 23, 3, 2, '#b78b64');
       box(px + 35, py + 35, 4, 2, '#b78b64');
+      for (let i = 0; i < 4; i++) {
+        const dx = 8 + Math.floor(hash(x, y, 70 + i) * 31), dy = 9 + Math.floor(hash(x, y, 80 + i) * 30);
+        box(px + dx, py + dy, 4, 2, '#af805c'); box(px + dx, py + dy, 2, 1, '#c99b70');
+      }
     }
     if (F.season(state) === '冬') {
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
@@ -337,6 +414,10 @@
     py += offset;
     const center = px + 24;
     const paint = (x, y, w, h, color) => { target.fillStyle = color; target.fillRect(Math.round(x), Math.round(y), w, h); };
+    const line = (x1, y1, x2, y2, color) => {
+      const steps = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1));
+      for (let i = 0; i <= steps; i++) paint(x1 + (x2 - x1) * i / (steps || 1), y1 + (y2 - y1) * i / (steps || 1), 1, 1, color);
+    };
     if (progress === 0) {
       paint(center - 6, py + 27, 12, 6, '#a77b53');
       if (crop.type === 'carrot') paint(center - 2, py + 24, 4, 5, '#e7bd7b');
@@ -344,6 +425,7 @@
       if (crop.type === 'pumpkin') { paint(center - 3, py + 24, 6, 4, '#e0c184'); paint(center - 1, py + 21, 2, 4, '#74a153'); }
       if (crop.type === 'strawberry') { paint(center - 2, py + 24, 4, 4, '#ae6156'); paint(center + 2, py + 25, 2, 3, '#ebd7a0'); }
       if (crop.type === 'corn') { paint(center - 4, py + 24, 4, 6, '#f6d46b'); paint(center + 2, py + 26, 3, 4, '#f6d46b'); }
+      paint(center - 4, py + 27, 2, 1, '#f3d3a0');
       return;
     }
     if (progress === 1) {
@@ -353,6 +435,11 @@
       if (crop.type === 'pumpkin') { paint(center - 11, py + 25, 10, 5, '#77b758'); paint(center + 2, py + 25, 10, 5, '#69a753'); paint(center - 1, py + 19, 3, 6, '#8eb75c'); }
       if (crop.type === 'strawberry') { paint(center - 11, py + 24, 10, 5, '#77b758'); paint(center + 2, py + 22, 10, 5, '#69a753'); }
       if (crop.type === 'corn') { paint(center - 8, py + 20, 7, 4, '#77b758'); paint(center + 2, py + 17, 7, 4, '#69a753'); }
+      if (crop.type === 'carrot') { line(center - 7, py + 20, center - 2, py + 21, '#b5db78'); line(center + 3, py + 19, center + 8, py + 18, '#b5db78'); }
+      if (crop.type === 'potato') { line(center - 8, py + 28, center + 7, py + 24, '#3c7440'); paint(center + 5, py + 22, 2, 2, '#a6cb72'); }
+      if (crop.type === 'pumpkin') line(center - 10, py + 28, center + 11, py + 27, '#426e38');
+      if (crop.type === 'strawberry') { paint(center - 7, py + 22, 3, 2, '#a0cb69'); paint(center + 5, py + 20, 3, 2, '#a0cb69'); }
+      if (crop.type === 'corn') { paint(center - 1, py + 21, 2, 8, '#a1c66a'); line(center + 4, py + 19, center + 8, py + 17, '#b6d57a'); }
       return;
     }
     if (crop.type === 'carrot') {
@@ -360,43 +447,67 @@
       paint(center - 12, py + 17, 11, 6, '#66a94c');
       paint(center + 1, py + 14, 12, 7, '#80b951');
       paint(center - 8, py + 9, 6, 11, '#78b353');
+      line(center - 8, py + 19, center - 1, py + 21, '#b4d971');
+      line(center + 2, py + 17, center + 10, py + 16, '#b4d971');
+      line(center - 5, py + 12, center - 4, py + 18, '#b4d971');
       if (mature) {
         paint(center - 9, py + 26, 18, 10, '#dc6b3d');
-        paint(center - 7, py + 36, 14, 5, '#ef8b47');
-        paint(center - 4, py + 41, 8, 3, '#edb361');
+        paint(center - 7, py + 36, 14, 4, '#ed8150');
+        paint(center - 4, py + 40, 8, 3, '#f1ddd0');
+        paint(center - 2, py + 43, 4, 2, '#fff2db');
+        paint(center - 7, py + 28, 5, 2, '#f3a06a');
       }
     } else if (crop.type === 'potato') {
       paint(center - 15, py + 24, 30, 12, '#4d8b47');
       paint(center - 11, py + 17, 13, 12, '#6fab55');
       paint(center + 1, py + 14, 14, 15, '#79b45f');
       paint(center - 4, py + 10, 8, 9, '#5c9d4c');
+      line(center - 13, py + 32, center - 4, py + 24, '#3d7140');
+      line(center - 4, py + 24, center + 8, py + 29, '#3d7140');
       if (mature) {
         paint(center - 16, py + 32, 13, 9, '#c9a376');
         paint(center + 3, py + 31, 14, 10, '#d8b684');
         paint(center - 11, py + 35, 2, 2, '#9a7758');
         paint(center + 9, py + 34, 2, 2, '#9a7758');
+        paint(center - 6, py + 15, 4, 3, '#f7f2de'); paint(center + 7, py + 18, 4, 3, '#fff9e8');
+        line(center - 12, py + 38, center - 8, py + 35, '#8c6b4f');
+        line(center + 2, py + 39, center + 6, py + 37, '#8c6b4f');
       }
     } else if (crop.type === 'pumpkin') {
       paint(center - 18, py + 30, 36, 5, '#4f8541');
       paint(center - 17, py + 23, 12, 11, '#6da449');
       paint(center + 6, py + 20, 12, 12, '#76ad4d');
       paint(center - 2, py + 15, 4, 17, '#5c8739');
+      line(center - 17, py + 34, center + 13, py + 31, '#426f36');
+      line(center + 12, py + 29, center + 17, py + 25, '#5b8a41');
+      line(center + 17, py + 25, center + 14, py + 22, '#5b8a41');
       if (mature) {
         paint(center - 17, py + 23, 34, 18, '#cd7034');
         paint(center - 12, py + 19, 24, 23, '#e6973d');
         paint(center - 4, py + 21, 8, 20, '#f3ad4d');
         paint(center - 3, py + 16, 6, 6, '#598141');
+        line(center - 10, py + 23, center - 11, py + 38, '#bd6931');
+        line(center + 9, py + 23, center + 10, py + 38, '#bd6931');
+        paint(center + 3, py + 23, 5, 2, '#ffd07b');
       }
     } else if (crop.type === 'strawberry') {
       paint(center - 2, py + 18, 4, 20, '#568a45');
       paint(center - 16, py + 22, 14, 9, '#6aa852');
       paint(center + 2, py + 20, 15, 10, '#78b65a');
       paint(center - 10, py + 13, 9, 8, '#5e9c4b');
+      paint(center - 13, py + 21, 4, 4, '#83bb5c');
+      paint(center + 10, py + 20, 4, 4, '#91c569');
+      paint(center - 5, py + 14, 3, 3, '#91c569');
+      paint(center - 13, py + 18, 4, 3, '#83bb5c'); paint(center - 9, py + 20, 4, 3, '#83bb5c');
+      paint(center + 6, py + 17, 4, 3, '#91c569'); paint(center + 10, py + 19, 4, 3, '#91c569');
+      paint(center - 2, py + 11, 4, 3, '#91c569'); paint(center + 2, py + 13, 4, 3, '#91c569');
       if (mature) {
-        for (const [dx, dy] of [[-11, 28], [4, 26], [-2, 33]]) {
-          paint(center + dx, py + dy, 9, 8, '#d94848');
+        for (const [dx, dy, color] of [[-11, 28, '#c73740'], [4, 26, '#e95151'], [-2, 33, '#d94148']]) {
+          paint(center + dx, py + dy, 9, 8, color);
           paint(center + dx + 2, py + dy + 7, 5, 3, '#ee6561');
-          paint(center + dx + 3, py + dy + 2, 2, 2, '#ffe6a2');
+          paint(center + dx + 1, py + dy + 2, 2, 2, '#fff0bb');
+          paint(center + dx + 5, py + dy + 4, 1, 2, '#ffe2a0');
+          paint(center + dx + 3, py + dy + 6, 1, 1, '#ffe2a0');
         }
       }
     } else if (crop.type === 'corn') {
@@ -404,58 +515,84 @@
       paint(center - 14, py + 19, 12, 5, '#78ae55');
       paint(center + 3, py + 23, 13, 5, '#72a74d');
       paint(center - 7, py + 7, 5, 10, '#8bb65b');
+      paint(center + 1, py + 10, 2, 25, '#a6c66c');
+      line(center - 12, py + 22, center - 2, py + 32, '#a5ca69');
       if (mature) {
         paint(center + 4, py + 17, 10, 19, '#e9b942');
         paint(center + 6, py + 19, 6, 15, '#f8db65');
         paint(center + 3, py + 27, 3, 12, '#70a750');
+        paint(center + 12, py + 25, 4, 13, '#6e9c4d');
+        line(center + 2, py + 36, center + 7, py + 23, '#92bd5b');
+        line(center + 16, py + 36, center + 12, py + 22, '#9fc566');
+        for (let row = 0; row < 4; row++) for (let col = 0; col < 2; col++) paint(center + 6 + col * 3, py + 20 + row * 3, 2, 2, '#ffe47d');
+        line(center + 8, py + 16, center + 4, py + 7, '#b38855');
+        line(center + 9, py + 16, center + 13, py + 8, '#b38855');
       }
     }
-    if (mature) paint(px + 38, py + 7, 4, 4, '#ffe7a0');
   }
 
   function drawFarmer(now) {
     const x = FIELD_X + state.farmer.x * TILE + 9;
     const walking = now < walkingUntil;
-    const step = walking ? Math.floor(now / 95) % 2 : 0;
-    const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -step * 2 : Math.floor(now / 900) % 2);
+    const frame = walking ? Math.floor(now / 65) % 4 : 0;
+    const feet = [0, 2, 0, -2][frame];
+    const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -(frame % 2) : Math.floor(now / 900) % 2);
+    const facing = state.farmer.facing;
     shadow(x + 21, y + 39, 16, 5);
-    box(x + 9, y + 31 + step, 8, 7, '#524c57');
-    box(x + 24, y + 31 - step, 8, 7, '#524c57');
-    box(x + 8, y + 20, 25, 13, '#557d8b');
-    box(x + 5, y + 22, 5, 10, '#edb881');
-    box(x + 32, y + 22, 5, 10, '#edb881');
+    box(x + 10, y + 29, 8, 7 + feet, '#775c4b');
+    box(x + 23, y + 29, 8, 7 - feet, '#775c4b');
+    box(x + 9, y + 35 + feet, 10, 4, '#45423f');
+    box(x + 22, y + 35 - feet, 10, 4, '#45423f');
+    box(x + 8, y + 20, 25, 13, facing === 'up' ? '#426f82' : '#557f9a');
+    box(x + 11, y + 22, 18, 2, '#739fb2');
+    box(x + 5, y + 22 + feet, 5, 10, '#edb881');
+    box(x + 32, y + 22 - feet, 5, 10, '#edb881');
     box(x + 12, y + 9, 18, 14, '#e8ae7a');
-    box(x + 10, y + 7, 22, 6, '#704f42');
-    box(x + (state.farmer.facing === 'left' ? 3 : state.farmer.facing === 'right' ? 9 : 6), y + 4, 30, 6, '#b48b56');
+    if (facing === 'up') box(x + 12, y + 11, 18, 13, '#795b45');
+    box(x + 10, y + 7, 22, 6, '#795a3d');
+    box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, '#b48b56');
     box(x + 12, y, 18, 7, '#ccaa68');
-    if (state.farmer.facing === 'up') box(x + 13, y + 13, 16, 9, '#9c6849');
-    if (state.farmer.facing === 'left') box(x + 29, y + 21, 4, 10, '#315e6d');
-    if (state.farmer.facing === 'right') box(x + 8, y + 21, 4, 10, '#315e6d');
-    if (state.farmer.facing !== 'up') {
-      if (state.farmer.facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
-      else if (state.farmer.facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
+    box(x + 16, y + 2, 11, 1, '#e4c989');
+    if (facing !== 'up') {
+      if (facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
+      else if (facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
       else {
         box(x + 16, y + 15, 3, 3, '#3c4540');
         box(x + 25, y + 15, 3, 3, '#3c4540');
+        box(x + 20, y + 20, 3, 1, '#b97761');
       }
     }
-    if (now < swingUntil) {
-      const raised = now < swingUntil - 75;
-      const facing = state.farmer.facing;
-      const tx = facing === 'left' ? x - 8 : facing === 'right' ? x + 35 : x + 20;
-      const ty = facing === 'up' ? y - (raised ? 17 : 6) : facing === 'down' ? y + (raised ? 22 : 31) : y + (raised ? 5 : 20);
-      box(tx, ty, 3, 18, '#825e3d');
-      box(tx - 5, ty - 2, 13, 4, '#b7bbb4');
+    if (now >= swingUntil) {
+      const tx = facing === 'left' ? x + 1 : x + 37;
+      box(tx, y + 22, 2, 14, '#8a6040');
+      if (state.tool === 'hoe') box(tx - 4, y + 20, 10, 3, '#b5c1bd');
+      if (state.tool === 'water') { box(tx - 3, y + 27, 9, 7, '#6babb8'); box(tx + 5, y + 29, 5, 2, '#8ac9d0'); }
+      if (state.tool === 'scythe') pixelLine(tx - 4, y + 21, tx + 6, y + 17, '#d8dfd2', 2);
+      if (state.tool === 'seed') box(tx - 3, y + 29, 8, 6, '#d4ad65');
+    } else {
+      const phase = Math.min(2, Math.floor((200 - (swingUntil - now)) / 67));
+      const side = facing === 'left' ? -1 : 1;
+      const tx = (facing === 'left' ? x - 5 : facing === 'right' ? x + 37 : x + 31) + (swingTool === 'scythe' ? [-6, 8, 1][phase] * side : 0);
+      const ty = y + [2, 17, 9][phase] + (swingTool === 'hoe' ? [-6, 4, 0][phase] : 0);
+      if (swingTool === 'water') {
+        box(tx - 5, ty + 6, 12, 9, '#6babb8'); box(tx - 3, ty + 8, 7, 3, '#9bd4d7');
+        pixelLine(tx - 3, ty + 6, tx + 4, ty + 2, '#b7d4ce', 2);
+        box(tx + side * 7, ty + (phase === 1 ? 13 : 9), 7, 3, '#8ac9d0');
+      } else {
+        pixelLine(tx, ty, tx + side * (swingTool === 'hoe' ? 7 : 4), ty + 18, '#8a6040', 3);
+        if (swingTool === 'hoe') box(tx - 6, ty - 2, 15, 4, '#b5c1bd');
+        else { pixelLine(tx - side * 7, ty + 2, tx + side * 6, ty - 5, '#d8dfd2', 2); box(tx - side * 7, ty + 2, 3, 3, '#bdc9c3'); }
+      }
     }
   }
 
   function drawScene(now) {
-    drawBackground();
+    drawBackground(now);
     drawHouse();
     drawPond(now);
-    drawTree(37, 274);
-    drawTree(685, 111);
-    drawTree(694, 380);
+    drawTree(37, 274, now);
+    drawTree(685, 111, now);
+    drawTree(694, 380, now);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
@@ -476,15 +613,45 @@
       ctx.strokeRect(px + (Math.floor(now / 25) % 2 ? 2 : -2) + 3, py + 3, 42, 42);
     }
     drawFarmer(now);
-    for (const particle of particles) {
-      if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
-      else box(particle.x, particle.y, particle.kind === 'rain' ? 2 : particle.kind === 'smoke' ? 8 : particle.kind === 'drop' ? 3 : 4, particle.kind === 'rain' ? 10 : particle.kind === 'smoke' ? 6 : particle.kind === 'drop' ? 5 : 4, particle.color);
+    if (waterArc && now < waterArc.until) {
+      for (let i = 0; i < 9; i++) {
+        const t = i / 8;
+        const x = waterArc.x + (waterArc.toX - waterArc.x) * t;
+        const y = waterArc.y + (waterArc.toY - waterArc.y) * t - 16 * Math.sin(t * Math.PI);
+        box(x, y, 2, 3, '#89dcea');
+      }
     }
+    for (const particle of particles) {
+      ctx.globalAlpha = particle.kind === 'smoke' || particle.kind === 'star' || particle.kind === 'splash' ? Math.max(0, 1 - particle.age / particle.life) : 1;
+      if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
+      else if (particle.kind === 'harvest') {
+        const t = particle.age / particle.life;
+        const x = t < 0.22 ? particle.x : particle.x + (700 - particle.x) * ((t - 0.22) / 0.78);
+        const y = t < 0.22 ? particle.y - 11 * Math.sin(t / 0.22 * Math.PI) : particle.y + (25 - particle.y) * ((t - 0.22) / 0.78) - 17 * Math.sin((t - 0.22) / 0.78 * Math.PI);
+        const size = Math.max(1, 7 * (1 - t));
+        ctx.save(); ctx.translate(x, y); ctx.rotate(t * Math.PI * 4); box(-size / 2, -size / 2, size, size, particle.color); ctx.restore();
+      } else if (particle.kind === 'star') {
+        box(particle.x - 3, particle.y, 7, 1, particle.color);
+        box(particle.x, particle.y - 3, 1, 7, particle.color);
+      } else if (particle.kind === 'rain') {
+        pixelLine(particle.x, particle.y, particle.x - 3, particle.y + 10, particle.color);
+      } else if (particle.kind === 'snow') box(particle.x, particle.y, 3, 3, particle.color);
+      else if (particle.kind === 'splash') { box(particle.x - 2, particle.y, 2, 2, particle.color); box(particle.x + 2, particle.y, 2, 2, particle.color); }
+      else box(particle.x, particle.y, particle.kind === 'smoke' ? 8 : particle.kind === 'drop' ? 3 : 4, particle.kind === 'smoke' ? 6 : particle.kind === 'drop' ? 5 : 4, particle.color);
+    }
+    ctx.globalAlpha = 1;
     if (sleepStart) {
       const elapsed = now - sleepStart;
-      const alpha = elapsed < 500 ? elapsed / 500 : 1 - (elapsed - 500) / 500;
+      const alpha = elapsed < 500 ? elapsed / 500 : elapsed < 900 ? 1 : 1 - (elapsed - 900) / 500;
       ctx.fillStyle = `rgba(17, 30, 68, ${Math.max(0, Math.min(0.72, alpha * 0.72))})`;
       ctx.fillRect(0, 0, 768, 576);
+      if (elapsed >= 500 && elapsed < 1300) {
+        for (let i = 0; i < 20; i++) {
+          ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(now / 270 + i * 2.3));
+          box(15 + hash(i, 3, 91) * 735, 8 + hash(i, 7, 92) * 450, 2, 2, '#fff4cf');
+        }
+        ctx.globalAlpha = 1;
+      }
     }
   }
 
@@ -492,11 +659,11 @@
     document.getElementById('date').textContent = `${F.season(state)} · 第 ${F.seasonDay(state)} 天`;
     document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
     document.getElementById('tomorrow').textContent = `明日：${state.tomorrow === 'rain' ? '雨' : '晴'}`;
-    document.getElementById('gold').textContent = `${state.gold} G`;
+    document.getElementById('gold').textContent = `${Math.round(goldDisplay)} G`;
     document.getElementById('energy-text').textContent = `${state.energy} / ${F.ENERGY_MAX}`;
     document.getElementById('energy-fill').style.width = `${state.energy / F.ENERGY_MAX * 100}%`;
     document.getElementById('tools').innerHTML = keys.map((key, i) =>
-      `<button type="button" class="tool ${state.tool === key ? 'active' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${state.upgrades[key] ? (key === 'hoe' ? '精钢锄' : '铁水壶') : F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
+      `<button type="button" class="tool ${state.tool === key ? 'active' : ''} ${toolBounce === key && performance.now() < bounceUntil ? 'bump' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${state.upgrades[key] ? (key === 'hoe' ? '精钢锄' : '铁水壶') : F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
     ).join('');
     document.getElementById('crop-options').innerHTML = '<span>播种：</span>' + Object.entries(F.CROPS).map(([key, crop]) =>
       `<button type="button" class="crop-choice ${state.selectedCrop === key ? 'active' : ''}" data-crop="${key}" aria-pressed="${state.selectedCrop === key}">${crop.name} × ${state.seeds[key]}</button>`
@@ -517,6 +684,10 @@
     const dt = Math.min(50, now - (lastFrame || now));
     lastFrame = now;
     tickInput(now);
+    if (waterArc && now >= waterArc.until) {
+      for (let i = 0; i < 5; i++) addParticle(waterArc.toX + (i - 2) * 5, waterArc.toY, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
+      waterArc = null;
+    }
     if (route.length && !input.direction && now >= routeNext) {
       move(route.shift());
       routeNext = now + 140;
@@ -527,27 +698,60 @@
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
       if (particle.kind === 'drop') particle.vy += 0.0018 * dt;
+      if (particle.kind === 'snow') particle.x += Math.sin(now / 240 + particle.y) * 0.4;
+      if (particle.kind === 'rain' && particle.y > 540) { particle.age = particle.life; addParticle(particle.x, 541, 0, 0, 120, '#d8efec', 'splash'); }
+      if (particle.kind === 'snow' && particle.y > 540) particle.age = particle.life;
     }
     particles = particles.filter(particle => particle.age < particle.life);
     if (now - lastSmoke > 350) {
       addParticle(19, 117, 0.025, -0.06, 850, '#f7f4e590', 'smoke');
       lastSmoke = now;
     }
-    if (now < rainUntil && now - lastRain > 35) {
-      for (let i = 0; i < 3; i++) addParticle((now * 3 + i * 251) % 768, (now * 7 + i * 113) % 300, -0.05, 0.8, 350, '#b7e5e8a0', 'rain');
+    if ((state.weather === 'rain' || F.season(state) === '冬') && now - lastRain > 35) {
+      const snow = F.season(state) === '冬';
+      for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % 768, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
       lastRain = now;
+    }
+    if (now - lastSpark >= 900) {
+      const mature = [];
+      for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+        const crop = state.plots[y][x].crop;
+        if (crop && crop.progress >= F.CROPS[crop.type].days) mature.push([x, y]);
+      }
+      if (mature.length) {
+        const [x, y] = mature[Math.floor(hash(now, mature.length, 96) * mature.length)];
+        addParticle(FIELD_X + x * TILE + 13 + hash(now, x, 97) * 22, FIELD_Y + y * TILE + 8, 0, -0.012, 420, '#fff1ad', 'star');
+      }
+      lastSpark = now;
     }
     if (sleepPending && now - sleepStart >= 500) {
       sleepPending = false;
       const outcome = F.sleep(state);
-      if (state.weather === 'rain') { rainUntil = now + 1000; sound('rain'); }
+      if (state.weather === 'rain') sound('rain');
       handle(outcome, true);
     }
-    if (sleepStart && now - sleepStart >= 1000) sleepStart = 0;
+    if (sleepStart && now - sleepStart >= 1400) sleepStart = 0;
+    if (goldStart) {
+      const t = Math.min(1, (now - goldStart) / 300);
+      goldDisplay = Math.round(goldFrom + (state.gold - goldFrom) * (1 - Math.pow(1 - t, 3)));
+      document.getElementById('gold').textContent = `${goldDisplay} G`;
+      if (t === 1) goldStart = 0;
+    }
     const gold = document.getElementById('gold');
     gold.style.transform = now < goldUntil ? `scale(${1 + 0.25 * Math.sin((goldUntil - now) / 500 * Math.PI)})` : '';
     drawScene(now);
-    requestAnimationFrame(frame);
+    if (!document.hidden) requestAnimationFrame(frame);
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) { lastFrame = 0; requestAnimationFrame(frame); }
+  });
+
+  function selectTool(key) {
+    initAudio();
+    const outcome = F.selectTool(state, key);
+    if (outcome.ok) { toolBounce = key; bounceUntil = performance.now() + 280; }
+    handle(outcome, true);
   }
 
   function openCodex() {
@@ -580,7 +784,7 @@
     }
     const direction = directionKeys[event.key];
     if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
-    if (event.key >= '1' && event.key <= '4') { initAudio(); handle(F.selectTool(state, keys[Number(event.key) - 1]), true); return; }
+    if (event.key >= '1' && event.key <= '4') { selectTool(keys[Number(event.key) - 1]); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
       event.preventDefault();
@@ -594,7 +798,7 @@
   window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; });
   document.getElementById('tools').addEventListener('click', event => {
     const button = event.target.closest('[data-tool]');
-    if (button) { initAudio(); handle(F.selectTool(state, button.dataset.tool), true); }
+    if (button) selectTool(button.dataset.tool);
   });
   document.getElementById('crop-options').addEventListener('click', event => {
     const button = event.target.closest('[data-crop]');
@@ -684,6 +888,8 @@
     input.direction = null;
     input.use = false;
     state = F.createGame();
+    goldDisplay = state.gold;
+    goldStart = 0;
     journal = ['新的农场生活开始了！'];
     handle({ ok: true, message: '新游戏已开始', events: [] }, true);
   });

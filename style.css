@@ -41,3 +41,8 @@ h2{font-size:16px;margin:0;color:#3a5540}
 .order-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px dashed #d6c099;padding:12px 0;font-size:13px;line-height:1.7}
 .order-row button,.bag-row button,.tabs button{border:1px solid #af885b;background:#f5e8c7;border-radius:6px;padding:8px 12px;color:#5c4c32}
 .tabs{display:flex;gap:8px;margin:12px 0}
+.modal:not([hidden]) .modal-card{animation:panel-enter .15s ease-out both}
+@keyframes panel-enter{from{opacity:0;transform:scale(.98)}to{opacity:1;transform:scale(1)}}
+.tool.bump .tool-icon{display:inline-block;animation:tool-bump .28s ease-out}
+@keyframes tool-bump{0%{transform:translateY(0)}40%{transform:translateY(-6px) scale(1.14)}75%{transform:translateY(2px)}100%{transform:translateY(0)}}
+.energy-track div{transition:width .2s ease-out}
