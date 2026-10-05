@@ -66,7 +66,8 @@
     springTop: '#f2bdc5', summerTop: '#78b263', autumnTop: '#edce72', capeLight: '#503344', capeDark: '#422c3d',
     skin: '#e8ae7a', skinLight: '#edb881', ink: '#3c4540', hat: '#ccaa68', hatBrim: '#b48b56', hatBand: '#795a3d',
     denim: '#557f9a', denimDark: '#315c73', denimLight: '#739fb2', shirt: '#426f82', pants: '#775c4b', shoes: '#45423f',
-    beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1'
+    beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1',
+    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646'
   };
   const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
@@ -434,7 +435,7 @@
       } else {
         drawGrassTile(px, py, x, y, terrain, p);
       }
-      if (terrain === 'tree') { drawTreeTrunk(px + 4, py - 8); drawTreeCanopy(px + 4, py - 8, hash(x, y, 165) * 900); }
+      if (terrain === 'tree') drawTree(px + 4, py - 8, x, y);
       const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
         (y === L.pond.top - 1 || y === L.pond.bottom + 1) && x >= L.pond.left && x <= L.pond.right;
       if (shore) {
@@ -486,33 +487,52 @@
     }
   }
 
-  function drawTreeTrunk(x, y) {
+  function drawTreeTrunk(x, y, narrow = false) {
     shadow(x + 21, y + 55, 22, 6);
     box(x + 11, y + 52, 22, 7, WORLD_COLORS.rootSoil);
-    box(x + 15, y + 20, 9, 38, WORLD_COLORS.bark);
-    box(x + 16, y + 27, 3, 25, WORLD_COLORS.barkLight); box(x + 22, y + 34, 3, 19, WORLD_COLORS.barkDark);
-    box(x + 8, y + 26, 24, 4, WORLD_COLORS.bark);
+    box(x + (narrow ? 17 : 15), y + 20, narrow ? 7 : 10, 38, WORLD_COLORS.bark);
+    box(x + 16, y + 27, 3, 25, WORLD_COLORS.barkLight); box(x + 23, y + 34, 3, 19, WORLD_COLORS.barkDark);
+    if (!narrow) box(x + 8, y + 26, 24, 4, WORLD_COLORS.bark);
+    for (let i = 0; i < 3; i++) box(x + 18 + i % 2 * 4, y + 31 + i * 8, 2, 5, i % 2 ? WORLD_COLORS.barkDark : WORLD_COLORS.barkLight);
     pixelLine(x + 14, y + 55, x + 8, y + 59, WORLD_COLORS.barkDark); pixelLine(x + 24, y + 54, x + 31, y + 59, WORLD_COLORS.barkDark);
   }
 
-  function drawTreeCanopy(x, y, now) {
+  function treeColors() {
     const season = F.season(state);
-    const sway = Math.round(Math.sin(now / 840 + x * 0.21) * 1);
-    if (season === '冬') {
-      box(x + 3 + sway, y + 24, 15, 3, '#eef5ec');
-      box(x + 23 + sway, y + 20, 15, 3, '#eef5ec');
-    } else {
-      const color = { '春': '#e7a5b1', '夏': '#5e9d58', '秋': '#dfbd62' }[season];
-      const dark = { '春': '#b98099', '夏': '#397749', '秋': '#aa8748' }[season];
-      const mid = { '春': WORLD_COLORS.springMid, '夏': WORLD_COLORS.summerMid, '秋': WORLD_COLORS.autumnMid }[season];
-      const light = { '春': WORLD_COLORS.springTop, '夏': WORLD_COLORS.summerTop, '秋': WORLD_COLORS.autumnTop }[season];
-      box(x + 4 + sway, y + 8, 32, 28, dark);
-      box(x + 11 + sway, y, 19, 40, dark);
-      box(x + 7 + sway, y + 5, 22, 15, mid);
-      box(x + 17 + sway, y + 18, 19, 12, color);
-      box(x + 4 + sway, y + 22, 14, 10, color);
-      box(x + 11 + sway, y + 4, 8, 5, light); box(x + 24 + sway, y + 15, 8, 5, light);
+    if (season === '冬') return [WORLD_COLORS.stoneDark, WORLD_COLORS.frostShade, WORLD_COLORS.frost, WORLD_COLORS.whiteFlash];
+    return {
+      '春': [WORLD_COLORS.leafDeep, WORLD_COLORS.leafGreen, WORLD_COLORS.leafLight, WORLD_COLORS.springFlowerLight],
+      '夏': [WORLD_COLORS.leafDeep, WORLD_COLORS.summerMid, WORLD_COLORS.summerTop, WORLD_COLORS.leafSun],
+      '秋': [WORLD_COLORS.woodDark, WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnMid, WORLD_COLORS.autumnTop]
+    }[season];
+  }
+
+  function drawTree(x, y, gridX, gridY) {
+    const pine = hash(gridX, gridY, 165) < 0.35;
+    const colors = treeColors();
+    drawTreeTrunk(x, y, pine);
+    if (pine) {
+      for (let tier = 0; tier < 4; tier++) {
+        const width = 17 + tier * 7, left = x + 21 - Math.floor(width / 2) + (tier % 2 ? 2 : -1), top = y - 3 + tier * 10;
+        box(left + 5, top, width - 10, 6, colors[2]);
+        box(left + 2, top + 5, width - 4, 7, colors[1]);
+        box(left, top + 10, width, 5, colors[0]);
+        box(left + 4, top + 9, 6, 2, colors[3]);
+        box(left + width - 9, top + 12, 5, 2, colors[1]);
+      }
+      return;
     }
+    const clusters = [[5, 10, 18, 16], [17, 1, 19, 18], [27, 12, 16, 18], [10, 23, 18, 14], [24, 26, 15, 11]];
+    clusters.forEach((cluster, i) => {
+      const [dx, dy, width, height] = cluster;
+      box(x + dx, y + dy, width, height, colors[i % 2]);
+      box(x + dx + 3, y + dy - 3, width - 7, 6, colors[2]);
+      box(x + dx + width - 6, y + dy + 5, 5, height - 7, colors[0]);
+      if (i < 3) box(x + dx + 4, y + dy + 2, 5, 3, colors[3]);
+    });
+    // 少量透光缺口打断圆球轮廓，位置由格坐标稳定决定。
+    const gap = Math.floor(hash(gridX, gridY, 168) * 3);
+    box(x + 13 + gap * 8, y + 20 + gap * 3, 4, 4, palette[F.season(state)].grass);
   }
 
   function drawPondRipples(now, visible) {
@@ -541,15 +561,16 @@
       const x = node.x * TILE, y = node.y * TILE;
       if (node.kind === 'tree') {
         if (status.charges) {
-          box(x + 12, y + 37, 18, 5, '#8a6040'); box(x + 18, y + 32, 18, 5, '#a5794f');
-        } else { box(x + 14, y + 33, 21, 10, '#8a6040'); box(x + 18, y + 32, 13, 3, '#c79a62'); ctx.beginPath(); ctx.ellipse(x + 24, y + 35, 5, 2, 0, 0, Math.PI * 2); ctx.strokeStyle = WORLD_COLORS.woodGrain; ctx.stroke(); }
+          box(x + 12, y + 37, 18, 5, WORLD_COLORS.stump); box(x + 18, y + 32, 18, 5, WORLD_COLORS.barkLight);
+          box(x + 14, y + 36, 14, 2, WORLD_COLORS.woodLight); box(x + 28, y + 31, 7, 2, WORLD_COLORS.woodLight);
+        } else { box(x + 14, y + 33, 21, 10, WORLD_COLORS.stump); box(x + 18, y + 32, 13, 3, WORLD_COLORS.stumpLight); box(x + 19, y + 34, 11, 2, WORLD_COLORS.woodGrain); box(x + 23, y + 36, 5, 2, WORLD_COLORS.barkDark); }
       } else if (node.kind === 'berry') {
-        pixelLine(x + 13, y + 40, x + 25, y + 18, '#654b35', 3); pixelLine(x + 34, y + 40, x + 25, y + 18, '#654b35', 3);
-        if (status.charges) { box(x + 9, y + 19, 31, 22, '#4f874f'); box(x + 15, y + 13, 21, 27, '#6aa45d'); box(x + 12, y + 16, 9, 8, WORLD_COLORS.leafLight); box(x + 28, y + 18, 9, 7, WORLD_COLORS.leafGreen); }
-        for (let i = 0; i < status.charges; i++) { ctx.fillStyle = '#c94646'; ctx.beginPath(); ctx.arc(x + 19 + i * 11, y + 24 + i * 5, 3, 0, Math.PI * 2); ctx.fill(); }
+        pixelLine(x + 13, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3); pixelLine(x + 34, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3);
+        if (status.charges) { box(x + 9, y + 20, 31, 21, WORLD_COLORS.leafDeep); box(x + 13, y + 16, 24, 22, WORLD_COLORS.leafGreen); box(x + 12, y + 16, 9, 8, WORLD_COLORS.leafLight); box(x + 28, y + 18, 9, 7, WORLD_COLORS.leafMid); }
+        for (let i = 0; i < status.charges; i++) { box(x + 17 + i * 11, y + 22 + i * 5, 6, 6, WORLD_COLORS.berry); box(x + 18 + i * 11, y + 22 + i * 5, 3, 2, WORLD_COLORS.springFlowerLight); }
       } else if (node.kind === 'stone') {
-        if (status.charges) { box(x + 8, y + 24, 33, 17, '#7f8985'); box(x + 14, y + 18, 21, 8, '#aab1aa'); box(x + 16, y + 20, 13, 3, WORLD_COLORS.whiteFlash); }
-        else { box(x + 11, y + 37, 9, 4, '#838b86'); box(x + 27, y + 34, 12, 6, '#9aa19c'); }
+        if (status.charges) { box(x + 8, y + 25, 33, 16, WORLD_COLORS.stoneDark); box(x + 12, y + 20, 25, 16, WORLD_COLORS.stoneMid); box(x + 16, y + 18, 17, 8, WORLD_COLORS.stoneLight); box(x + 17, y + 19, 12, 3, WORLD_COLORS.whiteFlash); }
+        else { box(x + 11, y + 37, 9, 4, WORLD_COLORS.stoneDark); box(x + 27, y + 34, 12, 6, WORLD_COLORS.stoneMid); box(x + 29, y + 34, 7, 2, WORLD_COLORS.stoneLight); }
       } else {
         const age = now % 1100 / 1100; ctx.globalAlpha = status.charges ? 0.85 : 0.2;
         ctx.beginPath(); ctx.ellipse(x + 24, y + 25, 5 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2); ctx.strokeStyle = '#e7f4e4'; ctx.stroke();
@@ -628,14 +649,30 @@
     box(x + 12, y + 13, 24, 20, WORLD_COLORS.plazaEdge);
     box(x + 18, y + 18, 12, 8, WORLD_COLORS.plazaLight);
     const farm = F.LAYOUT.farm;
-    for (let px = farm.left; px <= farm.right; px += 3) { box(px * TILE + 21, farm.top * TILE - 9, 5, 14, WORLD_COLORS.wood); box(px * TILE + 22, farm.top * TILE - 8, 2, 11, WORLD_COLORS.woodLight); }
+    const fenceY = farm.top * TILE - 12;
+    for (let px = farm.left; px <= farm.right; px += 3) {
+      const fenceX = px * TILE + 21;
+      box(fenceX + 3, fenceY + 12, 132, 4, WORLD_COLORS.shadow);
+      box(fenceX, fenceY + 4, 132, 6, WORLD_COLORS.woodDark);
+      box(fenceX + 1, fenceY + 2, 130, 5, WORLD_COLORS.wood);
+      box(fenceX + 12, fenceY + 3, 20, 2, WORLD_COLORS.woodLight);
+      box(fenceX, fenceY - 1, 7, 18, WORLD_COLORS.woodDark);
+      box(fenceX + 1, fenceY - 3, 5, 18, WORLD_COLORS.wood);
+      box(fenceX + 2, fenceY - 3, 3, 2, WORLD_COLORS.woodLight);
+    }
   }
 
   function drawPlot(plot, x, y) {
     if (!plot.tilled && !plot.structure) return;
     const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
     if (plot.structure) {
-      if (plot.structure === 'fence') { box(px + 5, py + 16, 38, 8, '#8a6040'); box(px + 9, py + 7, 6, 34, '#c99b70'); box(px + 32, py + 7, 6, 34, '#c99b70'); }
+      if (plot.structure === 'fence') {
+        shadow(px + 25, py + 38, 20, 4);
+        box(px + 5, py + 17, 38, 7, WORLD_COLORS.woodDark); box(px + 6, py + 14, 36, 6, WORLD_COLORS.wood);
+        box(px + 6, py + 28, 36, 6, WORLD_COLORS.woodDark); box(px + 7, py + 26, 34, 5, WORLD_COLORS.wood);
+        for (const post of [9, 32]) { box(px + post, py + 7, 7, 34, WORLD_COLORS.woodDark); box(px + post + 1, py + 5, 5, 34, WORLD_COLORS.wood); box(px + post + 2, py + 5, 3, 2, WORLD_COLORS.woodLight); }
+        box(px + 20, py + 16, 7, 2, WORLD_COLORS.woodLight); box(px + 28, py + 28, 6, 2, WORLD_COLORS.woodGrain);
+      }
       else { box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373'); }
       return;
     }
