@@ -1,8 +1,8 @@
 (function (root) {
   'use strict';
 
-  const WIDTH = 12;
-  const HEIGHT = 9;
+  const WIDTH = 20;
+  const HEIGHT = 14;
   const HEALTH_MAX = 100;
   const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
@@ -25,7 +25,28 @@
   const BUILDINGS = { scarecrow: { name: '稻草人', price: 150 }, fence: { name: '木栅栏', price: 40 } };
   const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20 };
   const WEAPONS = { none: { name: '徒手', price: 0, damage: 0, counter: 0 }, club: { name: '木棍', price: 100, damage: 1, counter: 0.30 }, axe: { name: '石斧', price: 300, damage: 2, counter: 0.55 }, sword: { name: '铁剑', price: 800, damage: 3, counter: 0.80 } };
-  const VILLAGERS = { mayor: { name: '村长', points: [[1, 1], [2, 1], [1, 2]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[3, 1], [4, 1], [3, 2]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 1], [7, 1], [6, 2]], gift: '木栅栏×2' } };
+  const LAYOUT = {
+    home: { x: 1, y: 1 }, homeDoor: { x: 1, y: 2 },
+    huts: [{ x: 3, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }],
+    square: { x: 3, y: 3 }, farm: { left: 4, top: 4, right: 15, bottom: 12 },
+    oldPlots: { x: 4, y: 4, width: 12, height: 9 },
+    pond: { left: 16, top: 9, right: 18, bottom: 12 },
+    woods: { left: 8, top: 0, right: 19, bottom: 2, pathX: 13 },
+    gate: { x: 10, y: 13 }, raidSpawns: [{ x: 9, y: 3 }, { x: 13, y: 3 }, { x: 18, y: 3 }]
+  };
+  const VILLAGERS = { mayor: { name: '村长', points: [[2, 2], [2, 3], [3, 3]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[4, 2], [4, 3], [3, 3]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 2], [6, 3], [5, 3]], gift: '木栅栏×2' } };
+  function inArea(x, y, area) { return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom; }
+  function terrainAt(x, y) {
+    if (!inBounds(x, y)) return 'outside';
+    if (x === LAYOUT.home.x && y === LAYOUT.home.y || LAYOUT.huts.some(hut => hut.x === x && hut.y === y)) return 'house';
+    if (inArea(x, y, LAYOUT.pond)) return 'pond';
+    if (inArea(x, y, LAYOUT.woods) && x !== LAYOUT.woods.pathX) return 'tree';
+    if (inArea(x, y, LAYOUT.woods)) return 'path';
+    if (inArea(x, y, LAYOUT.farm)) return 'farm';
+    if (x <= 6 && y <= 4) return 'residential';
+    return 'grass';
+  }
+  function canWalk(state, x, y) { return inBounds(x, y) && !['house', 'pond', 'tree'].includes(terrainAt(x, y)) && state.plots[y][x].structure !== 'fence'; }
   function validRaid(raid) {
     return raid && ['calm', 'raid', 'large'].includes(raid.level) &&
       Number.isInteger(raid.count) && raid.count >= 0 && raid.count <= 6 &&
@@ -49,7 +70,7 @@
 
   function createGame() {
     return {
-      version: 5,
+      version: 6,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -59,7 +80,7 @@
       gameOver: false,
       villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
       fenceStock: 0,
-      farmer: { x: 5, y: 4, facing: 'down' },
+      farmer: { x: 5, y: 3, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
@@ -76,13 +97,23 @@
   }
 
   function migrateSave(saved) {
-    if (!saved || ![1, 2, 3, 4, 5].includes(saved.version) ||
-        !Array.isArray(saved.plots) || saved.plots.length !== HEIGHT ||
-        !saved.plots.every(row => Array.isArray(row) && row.length === WIDTH) ||
-        !saved.farmer || !inBounds(saved.farmer.x, saved.farmer.y) ||
+    const legacy = saved?.version <= 5 && Array.isArray(saved.plots) &&
+      saved.plots.length === LAYOUT.oldPlots.height &&
+      saved.plots.every(row => Array.isArray(row) && row.length === LAYOUT.oldPlots.width);
+    if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version) ||
+        !Array.isArray(saved.plots) ||
+        !((saved.plots.length === HEIGHT && saved.plots.every(row => Array.isArray(row) && row.length === WIDTH)) || legacy) ||
+        !saved.farmer || !(legacy ? saved.farmer.x >= 0 && saved.farmer.x < LAYOUT.oldPlots.width && saved.farmer.y >= 0 && saved.farmer.y < LAYOUT.oldPlots.height : inBounds(saved.farmer.x, saved.farmer.y)) ||
         !DIRECTIONS[saved.farmer.facing] || !(TOOLS[saved.tool] || saved.tool === 'water') ||
         !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
         !Number.isFinite(saved.gold)) return null;
+    if (legacy) {
+      const plots = Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot));
+      for (let y = 0; y < LAYOUT.oldPlots.height; y++) for (let x = 0; x < LAYOUT.oldPlots.width; x++)
+        plots[LAYOUT.oldPlots.y + y][LAYOUT.oldPlots.x + x] = saved.plots[y][x];
+      saved.plots = plots;
+      saved.farmer = { ...saved.farmer, ...LAYOUT.homeDoor };
+    }
     delete saved.energy;
     saved.health = Number.isFinite(saved.health) ? Math.max(0, Math.min(HEALTH_MAX, saved.health)) : HEALTH_MAX;
     saved.weapon = WEAPONS[saved.weapon] ? saved.weapon : 'none';
@@ -125,7 +156,7 @@
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 5;
+    saved.version = 6;
     return saved;
   }
 
@@ -145,6 +176,19 @@
   function inBounds(x, y) {
     return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
   }
+  function cameraTarget(farmer, viewportWidth, viewportHeight, tile = 48) {
+    const axis = (position, count, view) => count * tile <= view ? (count * tile - view) / 2 :
+      Math.max(0, Math.min(count * tile - view, (position + 0.5) * tile - view / 2));
+    return { x: axis(farmer.x, WIDTH, viewportWidth), y: axis(farmer.y, HEIGHT, viewportHeight) };
+  }
+  function cameraStep(current, target, elapsed) {
+    const alpha = 1 - Math.exp(-Math.max(0, elapsed) / 120);
+    return { x: current.x + (target.x - current.x) * alpha, y: current.y + (target.y - current.y) * alpha };
+  }
+  function screenToCell(clientX, clientY, rect, camera, viewportWidth, viewportHeight, tile = 48) {
+    return { x: Math.floor(((clientX - rect.left) / rect.width * viewportWidth + camera.x) / tile),
+      y: Math.floor(((clientY - rect.top) / rect.height * viewportHeight + camera.y) / tile) };
+  }
 
   function result(ok, message, events) {
     return { ok, message, events: events || (ok ? [message] : []) };
@@ -157,6 +201,7 @@
     const x = state.farmer.x + dx;
     const y = state.farmer.y + dy;
     if (!inBounds(x, y)) return result(false, '农场边界，不能再往前走了');
+    if (!canWalk(state, x, y) && state.plots[y][x].structure !== 'fence') return result(false, '地物挡住了路');
     if (state.plots[y][x].structure === 'fence') return result(false, '木栅栏挡住了路');
     state.farmer.x = x;
     state.farmer.y = y;
@@ -190,6 +235,7 @@
 
     let message;
     if (tool === 'hoe') {
+      if (terrainAt(x, y) !== 'farm') return result(false, '这里只能在农田区开垦');
       if (plot.structure) return result(false, '这里有防御道具');
       if (plot.tilled) return result(false, '这块地已经开垦过了');
       plot.tilled = true;
@@ -234,6 +280,7 @@
     const { x, y } = frontCell(state);
     if (!inBounds(x, y)) return result(false, '前方没有地块');
     const plot = state.plots[y][x];
+    if (!['farm', 'residential'].includes(terrainAt(x, y))) return result(false, '这里只能在农田或住宅空地建造');
     if (plot.tilled || plot.crop || plot.structure) return result(false, '只能放在空草地上');
     const price = BUILDINGS[kind].price;
     const free = kind === 'fence' && state.fenceStock > 0;
@@ -381,7 +428,7 @@
       if (adjacent ? Math.abs(node.x - targetX) + Math.abs(node.y - targetY) === 1 : node.x === targetX && node.y === targetY) return node.path;
       for (const [direction, [dx, dy]] of Object.entries(DIRECTIONS)) {
         const x = node.x + dx, y = node.y + dy, key = `${x},${y}`;
-        if (inBounds(x, y) && state.plots[y][x].structure !== 'fence' && !seen.has(key)) {
+        if (canWalk(state, x, y) && !seen.has(key)) {
           seen.add(key);
           queue.push({ x, y, path: [...node.path, direction] });
         }
@@ -408,7 +455,7 @@
     if (!damage) {
       const [dx, dy] = DIRECTIONS[state.farmer.facing];
       const x = enemy.x + dx, y = enemy.y + dy;
-      if (inBounds(x, y) && state.plots[y][x].structure !== 'fence') { enemy.x = x; enemy.y = y; }
+      if (canWalk(state, x, y)) { enemy.x = x; enemy.y = y; }
       return result(true, '徒手推开强盗一格');
     }
     enemy.health -= damage;
@@ -421,7 +468,7 @@
 
   function watchTick(state, battle, now) {
     if (battle.spawned < battle.count && now - battle.started >= battle.spawned * 2000) {
-      const edges = [{ x: 0, y: 0 }, { x: WIDTH - 1, y: 0 }, { x: 0, y: HEIGHT - 1 }, { x: WIDTH - 1, y: HEIGHT - 1 }];
+      const edges = LAYOUT.raidSpawns;
       const edge = edges.slice(battle.spawned % 4).concat(edges.slice(0, battle.spawned % 4)).find(cell => state.plots[cell.y][cell.x].structure !== 'fence') || edges[battle.spawned % 4];
       battle.enemies.push({ ...edge, health: 3, retreating: false }); battle.spawned++;
     }
@@ -466,7 +513,7 @@
 
   function raidDistance(state, targetX, targetY) {
     const origin = state.farmer;
-    state.farmer = { x: 0, y: 0, facing: 'down' };
+    state.farmer = { ...LAYOUT.raidSpawns[0], facing: 'down' };
     const path = findPath(state, targetX, targetY);
     state.farmer = origin;
     return path ? path.length : Infinity;
@@ -474,7 +521,7 @@
 
   function resolveRaid(state, raid, random = Math.random) {
     if (raid.level === 'calm') return { events: ['昨夜平静'], lost: 0, fences: 0, gold: 0, items: 0, repelled: 0 };
-    const events = [];
+    const events = raid.attackers.includes('bandit') ? ['强盗从北侧林地南缘来袭'] : [];
     let lost = 0, fences = 0, gold = 0, items = 0, repelled = 0;
     for (const kind of raid.attackers) {
       if (kind === 'crow') {
@@ -585,7 +632,7 @@
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
     act, buySeed, sellAll, sellCrop, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };

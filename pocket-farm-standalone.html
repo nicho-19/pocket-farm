@@ -222,8 +222,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 (function (root) {
   'use strict';
 
-  const WIDTH = 12;
-  const HEIGHT = 9;
+  const WIDTH = 20;
+  const HEIGHT = 14;
   const HEALTH_MAX = 100;
   const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
@@ -246,7 +246,28 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   const BUILDINGS = { scarecrow: { name: '稻草人', price: 150 }, fence: { name: '木栅栏', price: 40 } };
   const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20 };
   const WEAPONS = { none: { name: '徒手', price: 0, damage: 0, counter: 0 }, club: { name: '木棍', price: 100, damage: 1, counter: 0.30 }, axe: { name: '石斧', price: 300, damage: 2, counter: 0.55 }, sword: { name: '铁剑', price: 800, damage: 3, counter: 0.80 } };
-  const VILLAGERS = { mayor: { name: '村长', points: [[1, 1], [2, 1], [1, 2]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[3, 1], [4, 1], [3, 2]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 1], [7, 1], [6, 2]], gift: '木栅栏×2' } };
+  const LAYOUT = {
+    home: { x: 1, y: 1 }, homeDoor: { x: 1, y: 2 },
+    huts: [{ x: 3, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }],
+    square: { x: 3, y: 3 }, farm: { left: 4, top: 4, right: 15, bottom: 12 },
+    oldPlots: { x: 4, y: 4, width: 12, height: 9 },
+    pond: { left: 16, top: 9, right: 18, bottom: 12 },
+    woods: { left: 8, top: 0, right: 19, bottom: 2, pathX: 13 },
+    gate: { x: 10, y: 13 }, raidSpawns: [{ x: 9, y: 3 }, { x: 13, y: 3 }, { x: 18, y: 3 }]
+  };
+  const VILLAGERS = { mayor: { name: '村长', points: [[2, 2], [2, 3], [3, 3]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[4, 2], [4, 3], [3, 3]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 2], [6, 3], [5, 3]], gift: '木栅栏×2' } };
+  function inArea(x, y, area) { return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom; }
+  function terrainAt(x, y) {
+    if (!inBounds(x, y)) return 'outside';
+    if (x === LAYOUT.home.x && y === LAYOUT.home.y || LAYOUT.huts.some(hut => hut.x === x && hut.y === y)) return 'house';
+    if (inArea(x, y, LAYOUT.pond)) return 'pond';
+    if (inArea(x, y, LAYOUT.woods) && x !== LAYOUT.woods.pathX) return 'tree';
+    if (inArea(x, y, LAYOUT.woods)) return 'path';
+    if (inArea(x, y, LAYOUT.farm)) return 'farm';
+    if (x <= 6 && y <= 4) return 'residential';
+    return 'grass';
+  }
+  function canWalk(state, x, y) { return inBounds(x, y) && !['house', 'pond', 'tree'].includes(terrainAt(x, y)) && state.plots[y][x].structure !== 'fence'; }
   function validRaid(raid) {
     return raid && ['calm', 'raid', 'large'].includes(raid.level) &&
       Number.isInteger(raid.count) && raid.count >= 0 && raid.count <= 6 &&
@@ -270,7 +291,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function createGame() {
     return {
-      version: 5,
+      version: 6,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -280,7 +301,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       gameOver: false,
       villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
       fenceStock: 0,
-      farmer: { x: 5, y: 4, facing: 'down' },
+      farmer: { x: 5, y: 3, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
@@ -297,13 +318,23 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   function migrateSave(saved) {
-    if (!saved || ![1, 2, 3, 4, 5].includes(saved.version) ||
-        !Array.isArray(saved.plots) || saved.plots.length !== HEIGHT ||
-        !saved.plots.every(row => Array.isArray(row) && row.length === WIDTH) ||
-        !saved.farmer || !inBounds(saved.farmer.x, saved.farmer.y) ||
+    const legacy = saved?.version <= 5 && Array.isArray(saved.plots) &&
+      saved.plots.length === LAYOUT.oldPlots.height &&
+      saved.plots.every(row => Array.isArray(row) && row.length === LAYOUT.oldPlots.width);
+    if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version) ||
+        !Array.isArray(saved.plots) ||
+        !((saved.plots.length === HEIGHT && saved.plots.every(row => Array.isArray(row) && row.length === WIDTH)) || legacy) ||
+        !saved.farmer || !(legacy ? saved.farmer.x >= 0 && saved.farmer.x < LAYOUT.oldPlots.width && saved.farmer.y >= 0 && saved.farmer.y < LAYOUT.oldPlots.height : inBounds(saved.farmer.x, saved.farmer.y)) ||
         !DIRECTIONS[saved.farmer.facing] || !(TOOLS[saved.tool] || saved.tool === 'water') ||
         !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
         !Number.isFinite(saved.gold)) return null;
+    if (legacy) {
+      const plots = Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot));
+      for (let y = 0; y < LAYOUT.oldPlots.height; y++) for (let x = 0; x < LAYOUT.oldPlots.width; x++)
+        plots[LAYOUT.oldPlots.y + y][LAYOUT.oldPlots.x + x] = saved.plots[y][x];
+      saved.plots = plots;
+      saved.farmer = { ...saved.farmer, ...LAYOUT.homeDoor };
+    }
     delete saved.energy;
     saved.health = Number.isFinite(saved.health) ? Math.max(0, Math.min(HEALTH_MAX, saved.health)) : HEALTH_MAX;
     saved.weapon = WEAPONS[saved.weapon] ? saved.weapon : 'none';
@@ -346,7 +377,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 5;
+    saved.version = 6;
     return saved;
   }
 
@@ -366,6 +397,19 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   function inBounds(x, y) {
     return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
   }
+  function cameraTarget(farmer, viewportWidth, viewportHeight, tile = 48) {
+    const axis = (position, count, view) => count * tile <= view ? (count * tile - view) / 2 :
+      Math.max(0, Math.min(count * tile - view, (position + 0.5) * tile - view / 2));
+    return { x: axis(farmer.x, WIDTH, viewportWidth), y: axis(farmer.y, HEIGHT, viewportHeight) };
+  }
+  function cameraStep(current, target, elapsed) {
+    const alpha = 1 - Math.exp(-Math.max(0, elapsed) / 120);
+    return { x: current.x + (target.x - current.x) * alpha, y: current.y + (target.y - current.y) * alpha };
+  }
+  function screenToCell(clientX, clientY, rect, camera, viewportWidth, viewportHeight, tile = 48) {
+    return { x: Math.floor(((clientX - rect.left) / rect.width * viewportWidth + camera.x) / tile),
+      y: Math.floor(((clientY - rect.top) / rect.height * viewportHeight + camera.y) / tile) };
+  }
 
   function result(ok, message, events) {
     return { ok, message, events: events || (ok ? [message] : []) };
@@ -378,6 +422,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const x = state.farmer.x + dx;
     const y = state.farmer.y + dy;
     if (!inBounds(x, y)) return result(false, '农场边界，不能再往前走了');
+    if (!canWalk(state, x, y) && state.plots[y][x].structure !== 'fence') return result(false, '地物挡住了路');
     if (state.plots[y][x].structure === 'fence') return result(false, '木栅栏挡住了路');
     state.farmer.x = x;
     state.farmer.y = y;
@@ -411,6 +456,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
     let message;
     if (tool === 'hoe') {
+      if (terrainAt(x, y) !== 'farm') return result(false, '这里只能在农田区开垦');
       if (plot.structure) return result(false, '这里有防御道具');
       if (plot.tilled) return result(false, '这块地已经开垦过了');
       plot.tilled = true;
@@ -455,6 +501,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const { x, y } = frontCell(state);
     if (!inBounds(x, y)) return result(false, '前方没有地块');
     const plot = state.plots[y][x];
+    if (!['farm', 'residential'].includes(terrainAt(x, y))) return result(false, '这里只能在农田或住宅空地建造');
     if (plot.tilled || plot.crop || plot.structure) return result(false, '只能放在空草地上');
     const price = BUILDINGS[kind].price;
     const free = kind === 'fence' && state.fenceStock > 0;
@@ -602,7 +649,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       if (adjacent ? Math.abs(node.x - targetX) + Math.abs(node.y - targetY) === 1 : node.x === targetX && node.y === targetY) return node.path;
       for (const [direction, [dx, dy]] of Object.entries(DIRECTIONS)) {
         const x = node.x + dx, y = node.y + dy, key = `${x},${y}`;
-        if (inBounds(x, y) && state.plots[y][x].structure !== 'fence' && !seen.has(key)) {
+        if (canWalk(state, x, y) && !seen.has(key)) {
           seen.add(key);
           queue.push({ x, y, path: [...node.path, direction] });
         }
@@ -629,7 +676,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (!damage) {
       const [dx, dy] = DIRECTIONS[state.farmer.facing];
       const x = enemy.x + dx, y = enemy.y + dy;
-      if (inBounds(x, y) && state.plots[y][x].structure !== 'fence') { enemy.x = x; enemy.y = y; }
+      if (canWalk(state, x, y)) { enemy.x = x; enemy.y = y; }
       return result(true, '徒手推开强盗一格');
     }
     enemy.health -= damage;
@@ -642,7 +689,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function watchTick(state, battle, now) {
     if (battle.spawned < battle.count && now - battle.started >= battle.spawned * 2000) {
-      const edges = [{ x: 0, y: 0 }, { x: WIDTH - 1, y: 0 }, { x: 0, y: HEIGHT - 1 }, { x: WIDTH - 1, y: HEIGHT - 1 }];
+      const edges = LAYOUT.raidSpawns;
       const edge = edges.slice(battle.spawned % 4).concat(edges.slice(0, battle.spawned % 4)).find(cell => state.plots[cell.y][cell.x].structure !== 'fence') || edges[battle.spawned % 4];
       battle.enemies.push({ ...edge, health: 3, retreating: false }); battle.spawned++;
     }
@@ -687,7 +734,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function raidDistance(state, targetX, targetY) {
     const origin = state.farmer;
-    state.farmer = { x: 0, y: 0, facing: 'down' };
+    state.farmer = { ...LAYOUT.raidSpawns[0], facing: 'down' };
     const path = findPath(state, targetX, targetY);
     state.farmer = origin;
     return path ? path.length : Infinity;
@@ -695,7 +742,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function resolveRaid(state, raid, random = Math.random) {
     if (raid.level === 'calm') return { events: ['昨夜平静'], lost: 0, fences: 0, gold: 0, items: 0, repelled: 0 };
-    const events = [];
+    const events = raid.attackers.includes('bandit') ? ['强盗从北侧林地南缘来袭'] : [];
     let lost = 0, fences = 0, gold = 0, items = 0, repelled = 0;
     for (const kind of raid.attackers) {
       if (kind === 'crow') {
@@ -806,7 +853,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
     act, buySeed, sellAll, sellCrop, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };
@@ -822,10 +869,13 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   const BEST_KEY = 'pocket-farm-best-days';
   const TILE = 48;
   const RENDER_SCALE = 2;
+  const STATIC_SCALE = 1.5;
   const SCENE_WIDTH = 768;
   const SCENE_HEIGHT = 576;
-  const FIELD_X = 96;
-  const FIELD_Y = 96;
+  const FIELD_X = 0;
+  const FIELD_Y = 0;
+  const WORLD_WIDTH = F.WIDTH * TILE;
+  const WORLD_HEIGHT = F.HEIGHT * TILE;
   const canvas = document.getElementById('farm');
   let ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -839,15 +889,17 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const width = Math.round((bounds.width || SCENE_WIDTH) * dpr * RENDER_SCALE);
     const height = Math.round((bounds.height || SCENE_HEIGHT) * dpr * RENDER_SCALE);
     if (canvas.width === width && canvas.height === height) return;
-    canvas.width = staticCanvas.width = width;
-    canvas.height = staticCanvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
     sceneContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
-    staticContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
     sceneContext.imageSmoothingEnabled = true;
     staticContext.imageSmoothingEnabled = true;
     staticKey = '';
   }
   resizeCanvas();
+  staticCanvas.width = Math.round(WORLD_WIDTH * STATIC_SCALE);
+  staticCanvas.height = Math.round(WORLD_HEIGHT * STATIC_SCALE);
+  staticContext.scale(STATIC_SCALE, STATIC_SCALE);
   window.addEventListener('resize', resizeCanvas);
 
   const palette = {
@@ -861,6 +913,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
   const keys = ['hoe', 'seed', 'scythe', 'build'];
   let state = load() || F.createGame();
+  let camera = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
+  let cameraTime = 0;
   let journal = [...(state.migrationEvents || []), '欢迎来到口袋田园！先开垦一块地吧。'];
   const migrationMessages = state.migrationEvents || [];
   delete state.migrationEvents;
@@ -1141,71 +1195,38 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function drawBackground() {
     const p = palette[F.season(state)];
-    const ground = ctx.createLinearGradient(0, 76, 0, SCENE_HEIGHT);
-    ground.addColorStop(0, p.light);
-    ground.addColorStop(0.4, p.grass);
-    ground.addColorStop(1, p.grassDark);
-    ctx.fillStyle = ground;
-    ctx.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
-    const sky = ctx.createLinearGradient(0, 0, 0, 75);
-    sky.addColorStop(0, '#f2f1d3');
-    sky.addColorStop(1, p.sky);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, SCENE_WIDTH, 67);
-    box(0, 67, 768, 9, p.light);
-    box(0, 76, 768, 5, p.grassDark);
-    label(`POCKET FARM  /  ${F.season(state)}之田`, 27, 38, '#53754f', 18);
-    label(`DAY ${String(state.day).padStart(2, '0')}`, 654, 38, '#53754f', 16);
-    for (let y = 82; y < 575; y += 6) {
-      for (let x = 0; x < 768; x += 6) {
-        const h = hash(x, y, 1);
-        if (h > 0.78) box(x + 3, y + 4, 3, 2, p.light);
-        if (h < 0.065) {
-          box(x + 5, y + 2, 2, 5, p.grassDark);
-          box(x + 3, y + 2, 2, 2, p.grassDark);
-          box(x + 7, y + 1, 2, 2, p.grassDark);
+    const L = F.LAYOUT;
+    box(0, 0, F.WIDTH * TILE, F.HEIGHT * TILE, p.grass);
+    for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+      const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
+      const terrain = F.terrainAt(x, y);
+      if (terrain === 'pond') {
+        box(px, py, TILE, TILE, '#6aaeb7');
+        box(px + 3, py + 4, TILE - 6, 2, '#a8d6c9');
+      } else if (terrain === 'path' || x === L.gate.x && y >= L.farm.bottom - 1) {
+        box(px, py, TILE, TILE, '#b9a276');
+        box(px + 4, py + 8, TILE - 8, 2, '#d3c09a');
+      } else {
+        box(px, py, TILE, TILE, terrain === 'residential' ? p.light : p.grass);
+        for (let i = 0; i < 5; i++) {
+          const gx = px + 4 + Math.floor(hash(x, y, 20 + i) * 39);
+          const gy = py + 5 + Math.floor(hash(x, y, 30 + i) * 38);
+          box(gx, gy, 2, 3, p.grassDark);
         }
       }
-    }
-    // 田地外框与小径
-    box(87, 87, 594, 450, '#547b4f');
-    box(92, 92, 584, 440, '#c4ad78');
-    box(96, 96, 576, 432, p.grass);
-    for (let y = 0; y < F.HEIGHT; y++) {
-      for (let x = 0; x < F.WIDTH; x++) {
-        const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
-        if (hash(x, y, 2) > 0.58) box(px + 9, py + 34, 5, 2, p.light);
-        if (hash(x, y, 3) > 0.7) box(px + 33, py + 12, 3, 3, p.grassDark);
-        for (let i = 0; i < 14; i++) {
-          const gx = px + 3 + Math.floor(hash(x, y, 20 + i) * 42);
-          const gy = py + 3 + Math.floor(hash(x, y, 30 + i) * 40);
-          ctx.fillStyle = i % 2 ? '#ffffff26' : '#355f3d35';
-          ctx.fillRect(gx + 0.5 * (i % 2), gy, 1, 1);
-        }
-        for (let i = 0; i < 4; i++) {
-          const gx = px + 7 + Math.floor(hash(x, y, 40 + i) * 34);
-          const gy = py + 12 + Math.floor(hash(x, y, 50 + i) * 30);
-          pixelLine(gx, gy + 4, gx - 2.5, gy, p.grassDark);
-          pixelLine(gx + 1.5, gy + 4, gx + 3.5, gy + 0.5, p.light);
-        }
-        if (hash(x, y, 61) > 0.75) { box(px + 35, py + 32, 4, 3, '#d2c5a0'); box(px + 35, py + 32, 2, 1, '#f1e9c5'); }
-        if (hash(x, y, 62) > 0.82) box(px + 17, py + 12, 3, 2, '#f5b4bd');
-        box(px, py, TILE, 1, '#ffffff0a');
-        box(px, py, 1, TILE, '#ffffff0a');
+      if (terrain === 'tree') drawTreeTrunk(px + 4, py - 8);
+      const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
+        (y === L.pond.top - 1 || y === L.pond.bottom + 1) && x >= L.pond.left && x <= L.pond.right;
+      if (shore) {
+        box(px + 30, py + 14, 2, 27, '#789756');
+        box(px + 28, py + 13, 6, 8, '#af9d69');
       }
     }
-    // 固定坐标的花丛和从家门到田边的石板路。
-    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) {
-      const w = 9 + Math.floor(hash(x, y, 4) * 5), h = 6 + Math.floor(hash(x, y, 5) * 3);
-      box(x, y, w, h, '#aa9672'); box(x + 1, y, w - 2, h - 1, '#d5c5a1');
-      box(x + w, y + h - 2, 2, 3, p.grassDark);
-    }
-    for (let i = 0; i < 18; i++) {
-      const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
-      if (x > 95 && x < 673 && y > 95 && y < 528) continue;
-      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
-      box(x + 2, y + 3, 2, 3, '#50824f');
-    }
+    // 村口道路向画面南侧继续，村牌仅作装饰。
+    box(L.gate.x * TILE + 5, L.gate.y * TILE, TILE - 10, TILE, '#b9a276');
+    box(L.gate.x * TILE + TILE - 7, L.gate.y * TILE - 27, 4, 35, '#806447');
+    box(L.gate.x * TILE + TILE - 25, L.gate.y * TILE - 30, 28, 16, '#d9ba7f');
+    label('村口', L.gate.x * TILE + TILE - 23, L.gate.y * TILE - 18, '#654d39', 10);
   }
 
   function drawAmbient(now) {
@@ -1216,7 +1237,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       const sway = Math.sin(now / 680 + x * 1.7 + y * 2.3) * 1.5;
       pixelLine(px, py + 4, px - 2 + sway, py, p.grassDark, 0.5);
     }
-    const cloudX = ((now % 8000) / 8000) * 950 - 150;
+    const cloudX = ((now % 8000) / 8000) * (WORLD_WIDTH + 200) - 150;
     ctx.fillStyle = '#3d5b5540';
     ctx.beginPath(); ctx.ellipse(cloudX, 285, 105, 27, -0.15, 0, Math.PI * 2); ctx.fill();
   }
@@ -1245,86 +1266,36 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     }
   }
 
-  function drawPondBase() {
-    box(12, 464, 73, 76, '#73997c');
-    const water = ctx.createLinearGradient(18, 469, 80, 534);
-    water.addColorStop(0, '#9dd6d0');
-    water.addColorStop(1, '#5ca4b3');
-    ctx.fillStyle = water;
-    ctx.fillRect(18, 469, 62, 65);
-    box(18, 470, 52, 2, '#e4d9ae'); box(19, 527, 56, 2, '#bfd8b9');
-    pixelLine(19, 470.5, 71, 470.5, '#fff2d2', 1);
-    pixelLine(19, 529.5, 75, 529.5, '#d5ecdf', 1);
-  }
-
   function drawPondRipples(now) {
-    const offset = Math.floor(now / 500) % 2 ? 4 : 0;
-    box(27 + offset, 488, 19, 2, '#d0e9d9');
-    box(48 - offset, 511, 17, 2, '#d0e9d9');
-    for (let i = 0; i < 2; i++) {
-      const age = (now + i * 600) % 1200 / 1200;
+    const L = F.LAYOUT.pond;
+    for (let i = 0; i < 3; i++) {
+      const px = (L.left + 0.8 + i) * TILE;
+      const py = (L.top + 1 + i % 2) * TILE;
+      const age = (now + i * 400) % 1200 / 1200;
       ctx.globalAlpha = 1 - age;
-      ctx.beginPath(); ctx.ellipse(48, 500, 3 + age * 23, 2 + age * 10, 0, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.ellipse(px, py, 3 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2);
       ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawHouse() {
-    // 左侧小屋、窗与烟囱均用矩形绘制。
-    box(9, 154, 74, 75, '#735849');
-    box(14, 162, 65, 62, '#e5c78a');
-    for (let i = 0; i < 9; i++) box(5 + i * 9, 150 - Math.min(i, 8 - i) * 7, 12, 7, '#895c48');
-    for (let row = 0; row < 3; row++) for (let i = 0; i < 7; i++) {
-      const tx = 13 + i * 9 + (row % 2 ? 4 : 0), ty = 128 + row * 8;
-      if (ty > 150 - Math.min(i + 1, 7 - i) * 6) continue;
-      box(tx, ty, 7, 1, '#bd8863'); box(tx + 7, ty, 1, 5, '#6e493b');
-    }
-    box(14, 119, 15, 24, '#b17e5b');
-    box(29, 180, 18, 18, '#ffe3a0');
-    box(31, 182, 14, 14, '#ebc878');
-    box(37, 180, 2, 18, '#f9e0a1');
-    box(29, 188, 18, 2, '#f9e0a1');
-    box(55, 189, 17, 35, '#856348');
-    box(58, 191, 2, 29, '#ab8259');
-    box(66, 205, 3, 3, '#eecb72');
-    box(14, 227, 64, 5, '#c1a36d');
-    label('HOME', 21, 252, '#eff1cd', 13);
+  function drawHouseCell(cell, name) {
+    const x = cell.x * TILE, y = cell.y * TILE;
+    shadow(x + 24, y + 43, 23, 5);
+    box(x + 4, y + 15, 40, 29, '#dfbf86');
+    box(x + 1, y + 10, 46, 10, '#825942');
+    box(x + 7, y + 5, 34, 8, '#a26d4c');
+    box(x + 17, y + 27, 14, 17, '#785b45');
+    box(x + 7, y + 25, 7, 7, '#ffe0a1');
+    label(name, x + 5, y + 3, '#634c38', 10);
+  }
 
-    box(689, 284, 64, 51, '#856747');
-    box(685, 277, 72, 12, '#aa8556');
-    box(694, 295, 54, 5, '#bc9a6a');
-    box(694, 308, 54, 4, '#bc9a6a');
-    box(712, 286, 20, 15, '#443d32');
-    label('SHIP', 699, 357, '#f2eecf', 13);
-    box(15, 379, 11, 42, '#715e47');
-    shadow(20, 419, 15, 4);
-    box(18, 385, 2, 25, '#a6845b');
-    box(8, 363, 28, 25, '#537f4e');
-    box(15, 353, 22, 25, '#679658');
-    box(1, 384, 28, 16, '#5a8a50');
-    box(719, 455, 10, 35, '#705e46');
-    shadow(724, 489, 20, 5);
-    box(722, 459, 2, 24, '#9c7a54');
-    box(701, 435, 45, 32, '#5d8a51');
-    box(710, 422, 29, 31, '#70a15a');
-    for (let x = 85; x < 680; x += 48) {
-      shadow(x + 5, 90, 6, 3); shadow(x + 5, 552, 6, 3);
-      box(x, 73, 5, 16, '#806c4a');
-      box(x, 536, 5, 16, '#806c4a');
-      box(x + 1, 74, 1, 12, '#ad8860'); box(x + 1, 538, 1, 10, '#ad8860');
-      if (x < 660) { box(x, 78, 45, 3, '#b89765'); box(x, 542, 45, 3, '#b89765'); }
-      if (x < 660) { box(x + 4, 79, 37, 1, '#d2b07c'); box(x + 4, 543, 37, 1, '#d2b07c'); }
-    }
-    for (let y = 91; y < 535; y += 48) {
-      box(87, y, 5, 16, '#806c4a');
-      box(677, y, 5, 16, '#806c4a');
-      box(88, y + 1, 1, 13, '#ad8860'); box(678, y + 1, 1, 13, '#ad8860');
-      box(89, y + 5, 3, 43, '#b89765');
-      box(678, y + 5, 3, 43, '#b89765');
-    }
-    pixelLine(15, 224.5, 77, 224.5, '#fff0c7');
-    pixelLine(686, 278.5, 755, 278.5, '#dfb980');
+  function drawHouses() {
+    drawHouseCell(F.LAYOUT.home, '家');
+    F.LAYOUT.huts.forEach((hut, i) => drawHouseCell(hut, ['村长', '婆婆', '猎手'][i]));
+    const x = F.LAYOUT.square.x * TILE, y = F.LAYOUT.square.y * TILE;
+    box(x + 12, y + 13, 24, 20, '#c9af80');
+    box(x + 18, y + 18, 12, 8, '#e9d5a9');
   }
 
   function drawPlot(plot, x, y) {
@@ -1543,25 +1514,30 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   function drawScene(now) {
-    const key = `${F.season(state)}:${state.day}:${state.weather}`;
+    const key = F.season(state);
     if (key !== staticKey) {
       ctx = staticContext;
-      ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+      ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       drawBackground();
-      drawHouse();
-      drawPondBase();
-      drawTreeTrunk(37, 274);
-      drawTreeTrunk(685, 111);
-      drawTreeTrunk(694, 380);
+      drawHouses();
       ctx = sceneContext;
       staticKey = key;
     }
-    ctx.drawImage(staticCanvas, 0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    const target = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
+    camera = F.cameraStep(camera, target, cameraTime ? now - cameraTime : 0);
+    cameraTime = now;
+    const sx = Math.max(0, camera.x), sy = Math.max(0, camera.y);
+    const sw = Math.min(WORLD_WIDTH, SCENE_WIDTH), sh = Math.min(WORLD_HEIGHT, SCENE_HEIGHT);
+    ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    ctx.drawImage(staticCanvas, sx * STATIC_SCALE, sy * STATIC_SCALE, sw * STATIC_SCALE, sh * STATIC_SCALE,
+      Math.max(0, -camera.x), Math.max(0, -camera.y), sw, sh);
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
     drawAmbient(now);
     drawPondRipples(now);
-    drawTreeCanopy(37, 274, now);
-    drawTreeCanopy(685, 111, now);
-    drawTreeCanopy(694, 380, now);
+    for (let y = F.LAYOUT.woods.top; y <= F.LAYOUT.woods.bottom; y++)
+      for (let x = F.LAYOUT.woods.left; x <= F.LAYOUT.woods.right; x++)
+        if (F.terrainAt(x, y) === 'tree') drawTreeCanopy(x * TILE + 4, y * TILE - 8, now);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
@@ -1597,7 +1573,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     }
     if (battle) {
       ctx.fillStyle = 'rgba(15, 30, 79, 0.48)';
-      ctx.fillRect(0, 0, 768, 576);
+      ctx.fillRect(camera.x, camera.y, SCENE_WIDTH, SCENE_HEIGHT);
       for (const enemy of battle.enemies) {
         if (enemy.x < 0 || enemy.x >= F.WIDTH) continue;
         const x = FIELD_X + enemy.x * TILE, y = FIELD_Y + enemy.y * TILE;
@@ -1605,15 +1581,15 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
         box(x + 9, y + 8, 30, 8, '#342b48');
         label(`♥${Math.max(0, enemy.health)}`, x + 12, y + 8, '#fff4cf', 10);
       }
-      label('守夜中 · 面向强盗按使用键挥砍', 215, 62, '#fff4cf', 15);
+      label('守夜中 · 面向强盗按使用键挥砍', camera.x + 215, camera.y + 62, '#fff4cf', 15);
     }
     for (const particle of particles) {
       ctx.globalAlpha = particle.kind === 'smoke' || particle.kind === 'star' || particle.kind === 'splash' ? Math.max(0, 1 - particle.age / particle.life) : 1;
       if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
       else if (particle.kind === 'harvest') {
         const t = particle.age / particle.life;
-        const x = t < 0.22 ? particle.x : particle.x + (700 - particle.x) * ((t - 0.22) / 0.78);
-        const y = t < 0.22 ? particle.y - 11 * Math.sin(t / 0.22 * Math.PI) : particle.y + (25 - particle.y) * ((t - 0.22) / 0.78) - 17 * Math.sin((t - 0.22) / 0.78 * Math.PI);
+        const x = t < 0.22 ? particle.x : particle.x + (state.farmer.x * TILE + TILE / 2 - particle.x) * ((t - 0.22) / 0.78);
+        const y = t < 0.22 ? particle.y - 11 * Math.sin(t / 0.22 * Math.PI) : particle.y + (state.farmer.y * TILE - particle.y) * ((t - 0.22) / 0.78) - 17 * Math.sin((t - 0.22) / 0.78 * Math.PI);
         const size = Math.max(1, 7 * (1 - t));
         ctx.save(); ctx.translate(x, y); ctx.rotate(t * Math.PI * 4); box(-size / 2, -size / 2, size, size, particle.color); ctx.restore();
       } else if (particle.kind === 'star') {
@@ -1630,15 +1606,16 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       const elapsed = now - sleepStart;
       const alpha = elapsed < 500 ? elapsed / 500 : elapsed < 900 ? 1 : 1 - (elapsed - 900) / 500;
       ctx.fillStyle = `rgba(17, 30, 68, ${Math.max(0, Math.min(0.72, alpha * 0.72))})`;
-      ctx.fillRect(0, 0, 768, 576);
+      ctx.fillRect(camera.x, camera.y, SCENE_WIDTH, SCENE_HEIGHT);
       if (elapsed >= 500 && elapsed < 1300) {
         for (let i = 0; i < 20; i++) {
           ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(now / 270 + i * 2.3));
-          box(15 + hash(i, 3, 91) * 735, 8 + hash(i, 7, 92) * 450, 2, 2, '#fff4cf');
+          box(camera.x + 15 + hash(i, 3, 91) * 735, camera.y + 8 + hash(i, 7, 92) * 450, 2, 2, '#fff4cf');
         }
         ctx.globalAlpha = 1;
       }
     }
+    ctx.restore();
   }
 
   function render() {
@@ -1722,17 +1699,17 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
       if (particle.kind === 'snow') particle.x += Math.sin(now / 240 + particle.y) * 0.4;
-      if (particle.kind === 'rain' && particle.y > 540) { particle.age = particle.life; addParticle(particle.x, 541, 0, 0, 120, '#d8efec', 'splash'); }
-      if (particle.kind === 'snow' && particle.y > 540) particle.age = particle.life;
+      if (particle.kind === 'rain' && particle.y > WORLD_HEIGHT - 24) { particle.age = particle.life; addParticle(particle.x, WORLD_HEIGHT - 23, 0, 0, 120, '#d8efec', 'splash'); }
+      if (particle.kind === 'snow' && particle.y > WORLD_HEIGHT - 24) particle.age = particle.life;
     }
     particles = particles.filter(particle => particle.age < particle.life);
     if (now - lastSmoke > 350) {
-      addParticle(19, 117, 0.025, -0.06, 850, '#f7f4e590', 'smoke');
+      addParticle(F.LAYOUT.home.x * TILE + 12, F.LAYOUT.home.y * TILE + 8, 0.025, -0.06, 850, '#f7f4e590', 'smoke');
       lastSmoke = now;
     }
     if ((state.weather === 'rain' || F.season(state) === '冬') && now - lastRain > 35) {
       const snow = F.season(state) === '冬';
-      for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % 768, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
+      for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % WORLD_WIDTH, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
       lastRain = now;
     }
     if (now - lastSpark >= 900) {
@@ -1919,7 +1896,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     input.direction = null;
     input.use = false;
     document.getElementById('home-confirm').hidden = true;
-    const path = F.findPath(state, 0, 3);
+    const path = F.findPath(state, F.LAYOUT.home.x, F.LAYOUT.home.y);
     if (!path) { enqueueToast('家门口暂时无法到达', 'alert'); return; }
     if (!path.length) { document.getElementById('home-confirm').hidden = false; return; }
     route = path;
@@ -1958,8 +1935,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   document.getElementById('touch-use').addEventListener('pointercancel', () => { input.use = false; });
   canvas.addEventListener('pointerdown', event => {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor(((event.clientX - rect.left) / rect.width * 768 - FIELD_X) / TILE);
-    const y = Math.floor(((event.clientY - rect.top) / rect.height * 576 - FIELD_Y) / TILE);
+    const { x, y } = F.screenToCell(event.clientX, event.clientY, rect, camera, SCENE_WIDTH, SCENE_HEIGHT, TILE);
     if (x < 0 || x >= F.WIDTH || y < 0 || y >= F.HEIGHT) return;
     input.direction = null;
     route = [];

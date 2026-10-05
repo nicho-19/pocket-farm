@@ -6,10 +6,13 @@
   const BEST_KEY = 'pocket-farm-best-days';
   const TILE = 48;
   const RENDER_SCALE = 2;
+  const STATIC_SCALE = 1.5;
   const SCENE_WIDTH = 768;
   const SCENE_HEIGHT = 576;
-  const FIELD_X = 96;
-  const FIELD_Y = 96;
+  const FIELD_X = 0;
+  const FIELD_Y = 0;
+  const WORLD_WIDTH = F.WIDTH * TILE;
+  const WORLD_HEIGHT = F.HEIGHT * TILE;
   const canvas = document.getElementById('farm');
   let ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -23,15 +26,17 @@
     const width = Math.round((bounds.width || SCENE_WIDTH) * dpr * RENDER_SCALE);
     const height = Math.round((bounds.height || SCENE_HEIGHT) * dpr * RENDER_SCALE);
     if (canvas.width === width && canvas.height === height) return;
-    canvas.width = staticCanvas.width = width;
-    canvas.height = staticCanvas.height = height;
+    canvas.width = width;
+    canvas.height = height;
     sceneContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
-    staticContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
     sceneContext.imageSmoothingEnabled = true;
     staticContext.imageSmoothingEnabled = true;
     staticKey = '';
   }
   resizeCanvas();
+  staticCanvas.width = Math.round(WORLD_WIDTH * STATIC_SCALE);
+  staticCanvas.height = Math.round(WORLD_HEIGHT * STATIC_SCALE);
+  staticContext.scale(STATIC_SCALE, STATIC_SCALE);
   window.addEventListener('resize', resizeCanvas);
 
   const palette = {
@@ -45,6 +50,8 @@
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
   const keys = ['hoe', 'seed', 'scythe', 'build'];
   let state = load() || F.createGame();
+  let camera = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
+  let cameraTime = 0;
   let journal = [...(state.migrationEvents || []), '欢迎来到口袋田园！先开垦一块地吧。'];
   const migrationMessages = state.migrationEvents || [];
   delete state.migrationEvents;
@@ -325,71 +332,38 @@
 
   function drawBackground() {
     const p = palette[F.season(state)];
-    const ground = ctx.createLinearGradient(0, 76, 0, SCENE_HEIGHT);
-    ground.addColorStop(0, p.light);
-    ground.addColorStop(0.4, p.grass);
-    ground.addColorStop(1, p.grassDark);
-    ctx.fillStyle = ground;
-    ctx.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
-    const sky = ctx.createLinearGradient(0, 0, 0, 75);
-    sky.addColorStop(0, '#f2f1d3');
-    sky.addColorStop(1, p.sky);
-    ctx.fillStyle = sky;
-    ctx.fillRect(0, 0, SCENE_WIDTH, 67);
-    box(0, 67, 768, 9, p.light);
-    box(0, 76, 768, 5, p.grassDark);
-    label(`POCKET FARM  /  ${F.season(state)}之田`, 27, 38, '#53754f', 18);
-    label(`DAY ${String(state.day).padStart(2, '0')}`, 654, 38, '#53754f', 16);
-    for (let y = 82; y < 575; y += 6) {
-      for (let x = 0; x < 768; x += 6) {
-        const h = hash(x, y, 1);
-        if (h > 0.78) box(x + 3, y + 4, 3, 2, p.light);
-        if (h < 0.065) {
-          box(x + 5, y + 2, 2, 5, p.grassDark);
-          box(x + 3, y + 2, 2, 2, p.grassDark);
-          box(x + 7, y + 1, 2, 2, p.grassDark);
+    const L = F.LAYOUT;
+    box(0, 0, F.WIDTH * TILE, F.HEIGHT * TILE, p.grass);
+    for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+      const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
+      const terrain = F.terrainAt(x, y);
+      if (terrain === 'pond') {
+        box(px, py, TILE, TILE, '#6aaeb7');
+        box(px + 3, py + 4, TILE - 6, 2, '#a8d6c9');
+      } else if (terrain === 'path' || x === L.gate.x && y >= L.farm.bottom - 1) {
+        box(px, py, TILE, TILE, '#b9a276');
+        box(px + 4, py + 8, TILE - 8, 2, '#d3c09a');
+      } else {
+        box(px, py, TILE, TILE, terrain === 'residential' ? p.light : p.grass);
+        for (let i = 0; i < 5; i++) {
+          const gx = px + 4 + Math.floor(hash(x, y, 20 + i) * 39);
+          const gy = py + 5 + Math.floor(hash(x, y, 30 + i) * 38);
+          box(gx, gy, 2, 3, p.grassDark);
         }
       }
-    }
-    // 田地外框与小径
-    box(87, 87, 594, 450, '#547b4f');
-    box(92, 92, 584, 440, '#c4ad78');
-    box(96, 96, 576, 432, p.grass);
-    for (let y = 0; y < F.HEIGHT; y++) {
-      for (let x = 0; x < F.WIDTH; x++) {
-        const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
-        if (hash(x, y, 2) > 0.58) box(px + 9, py + 34, 5, 2, p.light);
-        if (hash(x, y, 3) > 0.7) box(px + 33, py + 12, 3, 3, p.grassDark);
-        for (let i = 0; i < 14; i++) {
-          const gx = px + 3 + Math.floor(hash(x, y, 20 + i) * 42);
-          const gy = py + 3 + Math.floor(hash(x, y, 30 + i) * 40);
-          ctx.fillStyle = i % 2 ? '#ffffff26' : '#355f3d35';
-          ctx.fillRect(gx + 0.5 * (i % 2), gy, 1, 1);
-        }
-        for (let i = 0; i < 4; i++) {
-          const gx = px + 7 + Math.floor(hash(x, y, 40 + i) * 34);
-          const gy = py + 12 + Math.floor(hash(x, y, 50 + i) * 30);
-          pixelLine(gx, gy + 4, gx - 2.5, gy, p.grassDark);
-          pixelLine(gx + 1.5, gy + 4, gx + 3.5, gy + 0.5, p.light);
-        }
-        if (hash(x, y, 61) > 0.75) { box(px + 35, py + 32, 4, 3, '#d2c5a0'); box(px + 35, py + 32, 2, 1, '#f1e9c5'); }
-        if (hash(x, y, 62) > 0.82) box(px + 17, py + 12, 3, 2, '#f5b4bd');
-        box(px, py, TILE, 1, '#ffffff0a');
-        box(px, py, 1, TILE, '#ffffff0a');
+      if (terrain === 'tree') drawTreeTrunk(px + 4, py - 8);
+      const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
+        (y === L.pond.top - 1 || y === L.pond.bottom + 1) && x >= L.pond.left && x <= L.pond.right;
+      if (shore) {
+        box(px + 30, py + 14, 2, 27, '#789756');
+        box(px + 28, py + 13, 6, 8, '#af9d69');
       }
     }
-    // 固定坐标的花丛和从家门到田边的石板路。
-    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) {
-      const w = 9 + Math.floor(hash(x, y, 4) * 5), h = 6 + Math.floor(hash(x, y, 5) * 3);
-      box(x, y, w, h, '#aa9672'); box(x + 1, y, w - 2, h - 1, '#d5c5a1');
-      box(x + w, y + h - 2, 2, 3, p.grassDark);
-    }
-    for (let i = 0; i < 18; i++) {
-      const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
-      if (x > 95 && x < 673 && y > 95 && y < 528) continue;
-      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
-      box(x + 2, y + 3, 2, 3, '#50824f');
-    }
+    // 村口道路向画面南侧继续，村牌仅作装饰。
+    box(L.gate.x * TILE + 5, L.gate.y * TILE, TILE - 10, TILE, '#b9a276');
+    box(L.gate.x * TILE + TILE - 7, L.gate.y * TILE - 27, 4, 35, '#806447');
+    box(L.gate.x * TILE + TILE - 25, L.gate.y * TILE - 30, 28, 16, '#d9ba7f');
+    label('村口', L.gate.x * TILE + TILE - 23, L.gate.y * TILE - 18, '#654d39', 10);
   }
 
   function drawAmbient(now) {
@@ -400,7 +374,7 @@
       const sway = Math.sin(now / 680 + x * 1.7 + y * 2.3) * 1.5;
       pixelLine(px, py + 4, px - 2 + sway, py, p.grassDark, 0.5);
     }
-    const cloudX = ((now % 8000) / 8000) * 950 - 150;
+    const cloudX = ((now % 8000) / 8000) * (WORLD_WIDTH + 200) - 150;
     ctx.fillStyle = '#3d5b5540';
     ctx.beginPath(); ctx.ellipse(cloudX, 285, 105, 27, -0.15, 0, Math.PI * 2); ctx.fill();
   }
@@ -429,86 +403,36 @@
     }
   }
 
-  function drawPondBase() {
-    box(12, 464, 73, 76, '#73997c');
-    const water = ctx.createLinearGradient(18, 469, 80, 534);
-    water.addColorStop(0, '#9dd6d0');
-    water.addColorStop(1, '#5ca4b3');
-    ctx.fillStyle = water;
-    ctx.fillRect(18, 469, 62, 65);
-    box(18, 470, 52, 2, '#e4d9ae'); box(19, 527, 56, 2, '#bfd8b9');
-    pixelLine(19, 470.5, 71, 470.5, '#fff2d2', 1);
-    pixelLine(19, 529.5, 75, 529.5, '#d5ecdf', 1);
-  }
-
   function drawPondRipples(now) {
-    const offset = Math.floor(now / 500) % 2 ? 4 : 0;
-    box(27 + offset, 488, 19, 2, '#d0e9d9');
-    box(48 - offset, 511, 17, 2, '#d0e9d9');
-    for (let i = 0; i < 2; i++) {
-      const age = (now + i * 600) % 1200 / 1200;
+    const L = F.LAYOUT.pond;
+    for (let i = 0; i < 3; i++) {
+      const px = (L.left + 0.8 + i) * TILE;
+      const py = (L.top + 1 + i % 2) * TILE;
+      const age = (now + i * 400) % 1200 / 1200;
       ctx.globalAlpha = 1 - age;
-      ctx.beginPath(); ctx.ellipse(48, 500, 3 + age * 23, 2 + age * 10, 0, 0, Math.PI * 2);
+      ctx.beginPath(); ctx.ellipse(px, py, 3 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2);
       ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
     }
     ctx.globalAlpha = 1;
   }
 
-  function drawHouse() {
-    // 左侧小屋、窗与烟囱均用矩形绘制。
-    box(9, 154, 74, 75, '#735849');
-    box(14, 162, 65, 62, '#e5c78a');
-    for (let i = 0; i < 9; i++) box(5 + i * 9, 150 - Math.min(i, 8 - i) * 7, 12, 7, '#895c48');
-    for (let row = 0; row < 3; row++) for (let i = 0; i < 7; i++) {
-      const tx = 13 + i * 9 + (row % 2 ? 4 : 0), ty = 128 + row * 8;
-      if (ty > 150 - Math.min(i + 1, 7 - i) * 6) continue;
-      box(tx, ty, 7, 1, '#bd8863'); box(tx + 7, ty, 1, 5, '#6e493b');
-    }
-    box(14, 119, 15, 24, '#b17e5b');
-    box(29, 180, 18, 18, '#ffe3a0');
-    box(31, 182, 14, 14, '#ebc878');
-    box(37, 180, 2, 18, '#f9e0a1');
-    box(29, 188, 18, 2, '#f9e0a1');
-    box(55, 189, 17, 35, '#856348');
-    box(58, 191, 2, 29, '#ab8259');
-    box(66, 205, 3, 3, '#eecb72');
-    box(14, 227, 64, 5, '#c1a36d');
-    label('HOME', 21, 252, '#eff1cd', 13);
+  function drawHouseCell(cell, name) {
+    const x = cell.x * TILE, y = cell.y * TILE;
+    shadow(x + 24, y + 43, 23, 5);
+    box(x + 4, y + 15, 40, 29, '#dfbf86');
+    box(x + 1, y + 10, 46, 10, '#825942');
+    box(x + 7, y + 5, 34, 8, '#a26d4c');
+    box(x + 17, y + 27, 14, 17, '#785b45');
+    box(x + 7, y + 25, 7, 7, '#ffe0a1');
+    label(name, x + 5, y + 3, '#634c38', 10);
+  }
 
-    box(689, 284, 64, 51, '#856747');
-    box(685, 277, 72, 12, '#aa8556');
-    box(694, 295, 54, 5, '#bc9a6a');
-    box(694, 308, 54, 4, '#bc9a6a');
-    box(712, 286, 20, 15, '#443d32');
-    label('SHIP', 699, 357, '#f2eecf', 13);
-    box(15, 379, 11, 42, '#715e47');
-    shadow(20, 419, 15, 4);
-    box(18, 385, 2, 25, '#a6845b');
-    box(8, 363, 28, 25, '#537f4e');
-    box(15, 353, 22, 25, '#679658');
-    box(1, 384, 28, 16, '#5a8a50');
-    box(719, 455, 10, 35, '#705e46');
-    shadow(724, 489, 20, 5);
-    box(722, 459, 2, 24, '#9c7a54');
-    box(701, 435, 45, 32, '#5d8a51');
-    box(710, 422, 29, 31, '#70a15a');
-    for (let x = 85; x < 680; x += 48) {
-      shadow(x + 5, 90, 6, 3); shadow(x + 5, 552, 6, 3);
-      box(x, 73, 5, 16, '#806c4a');
-      box(x, 536, 5, 16, '#806c4a');
-      box(x + 1, 74, 1, 12, '#ad8860'); box(x + 1, 538, 1, 10, '#ad8860');
-      if (x < 660) { box(x, 78, 45, 3, '#b89765'); box(x, 542, 45, 3, '#b89765'); }
-      if (x < 660) { box(x + 4, 79, 37, 1, '#d2b07c'); box(x + 4, 543, 37, 1, '#d2b07c'); }
-    }
-    for (let y = 91; y < 535; y += 48) {
-      box(87, y, 5, 16, '#806c4a');
-      box(677, y, 5, 16, '#806c4a');
-      box(88, y + 1, 1, 13, '#ad8860'); box(678, y + 1, 1, 13, '#ad8860');
-      box(89, y + 5, 3, 43, '#b89765');
-      box(678, y + 5, 3, 43, '#b89765');
-    }
-    pixelLine(15, 224.5, 77, 224.5, '#fff0c7');
-    pixelLine(686, 278.5, 755, 278.5, '#dfb980');
+  function drawHouses() {
+    drawHouseCell(F.LAYOUT.home, '家');
+    F.LAYOUT.huts.forEach((hut, i) => drawHouseCell(hut, ['村长', '婆婆', '猎手'][i]));
+    const x = F.LAYOUT.square.x * TILE, y = F.LAYOUT.square.y * TILE;
+    box(x + 12, y + 13, 24, 20, '#c9af80');
+    box(x + 18, y + 18, 12, 8, '#e9d5a9');
   }
 
   function drawPlot(plot, x, y) {
@@ -727,25 +651,30 @@
   }
 
   function drawScene(now) {
-    const key = `${F.season(state)}:${state.day}:${state.weather}`;
+    const key = F.season(state);
     if (key !== staticKey) {
       ctx = staticContext;
-      ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+      ctx.clearRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
       drawBackground();
-      drawHouse();
-      drawPondBase();
-      drawTreeTrunk(37, 274);
-      drawTreeTrunk(685, 111);
-      drawTreeTrunk(694, 380);
+      drawHouses();
       ctx = sceneContext;
       staticKey = key;
     }
-    ctx.drawImage(staticCanvas, 0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    const target = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
+    camera = F.cameraStep(camera, target, cameraTime ? now - cameraTime : 0);
+    cameraTime = now;
+    const sx = Math.max(0, camera.x), sy = Math.max(0, camera.y);
+    const sw = Math.min(WORLD_WIDTH, SCENE_WIDTH), sh = Math.min(WORLD_HEIGHT, SCENE_HEIGHT);
+    ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
+    ctx.drawImage(staticCanvas, sx * STATIC_SCALE, sy * STATIC_SCALE, sw * STATIC_SCALE, sh * STATIC_SCALE,
+      Math.max(0, -camera.x), Math.max(0, -camera.y), sw, sh);
+    ctx.save();
+    ctx.translate(-camera.x, -camera.y);
     drawAmbient(now);
     drawPondRipples(now);
-    drawTreeCanopy(37, 274, now);
-    drawTreeCanopy(685, 111, now);
-    drawTreeCanopy(694, 380, now);
+    for (let y = F.LAYOUT.woods.top; y <= F.LAYOUT.woods.bottom; y++)
+      for (let x = F.LAYOUT.woods.left; x <= F.LAYOUT.woods.right; x++)
+        if (F.terrainAt(x, y) === 'tree') drawTreeCanopy(x * TILE + 4, y * TILE - 8, now);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
@@ -781,7 +710,7 @@
     }
     if (battle) {
       ctx.fillStyle = 'rgba(15, 30, 79, 0.48)';
-      ctx.fillRect(0, 0, 768, 576);
+      ctx.fillRect(camera.x, camera.y, SCENE_WIDTH, SCENE_HEIGHT);
       for (const enemy of battle.enemies) {
         if (enemy.x < 0 || enemy.x >= F.WIDTH) continue;
         const x = FIELD_X + enemy.x * TILE, y = FIELD_Y + enemy.y * TILE;
@@ -789,15 +718,15 @@
         box(x + 9, y + 8, 30, 8, '#342b48');
         label(`♥${Math.max(0, enemy.health)}`, x + 12, y + 8, '#fff4cf', 10);
       }
-      label('守夜中 · 面向强盗按使用键挥砍', 215, 62, '#fff4cf', 15);
+      label('守夜中 · 面向强盗按使用键挥砍', camera.x + 215, camera.y + 62, '#fff4cf', 15);
     }
     for (const particle of particles) {
       ctx.globalAlpha = particle.kind === 'smoke' || particle.kind === 'star' || particle.kind === 'splash' ? Math.max(0, 1 - particle.age / particle.life) : 1;
       if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
       else if (particle.kind === 'harvest') {
         const t = particle.age / particle.life;
-        const x = t < 0.22 ? particle.x : particle.x + (700 - particle.x) * ((t - 0.22) / 0.78);
-        const y = t < 0.22 ? particle.y - 11 * Math.sin(t / 0.22 * Math.PI) : particle.y + (25 - particle.y) * ((t - 0.22) / 0.78) - 17 * Math.sin((t - 0.22) / 0.78 * Math.PI);
+        const x = t < 0.22 ? particle.x : particle.x + (state.farmer.x * TILE + TILE / 2 - particle.x) * ((t - 0.22) / 0.78);
+        const y = t < 0.22 ? particle.y - 11 * Math.sin(t / 0.22 * Math.PI) : particle.y + (state.farmer.y * TILE - particle.y) * ((t - 0.22) / 0.78) - 17 * Math.sin((t - 0.22) / 0.78 * Math.PI);
         const size = Math.max(1, 7 * (1 - t));
         ctx.save(); ctx.translate(x, y); ctx.rotate(t * Math.PI * 4); box(-size / 2, -size / 2, size, size, particle.color); ctx.restore();
       } else if (particle.kind === 'star') {
@@ -814,15 +743,16 @@
       const elapsed = now - sleepStart;
       const alpha = elapsed < 500 ? elapsed / 500 : elapsed < 900 ? 1 : 1 - (elapsed - 900) / 500;
       ctx.fillStyle = `rgba(17, 30, 68, ${Math.max(0, Math.min(0.72, alpha * 0.72))})`;
-      ctx.fillRect(0, 0, 768, 576);
+      ctx.fillRect(camera.x, camera.y, SCENE_WIDTH, SCENE_HEIGHT);
       if (elapsed >= 500 && elapsed < 1300) {
         for (let i = 0; i < 20; i++) {
           ctx.globalAlpha = 0.45 + 0.55 * Math.abs(Math.sin(now / 270 + i * 2.3));
-          box(15 + hash(i, 3, 91) * 735, 8 + hash(i, 7, 92) * 450, 2, 2, '#fff4cf');
+          box(camera.x + 15 + hash(i, 3, 91) * 735, camera.y + 8 + hash(i, 7, 92) * 450, 2, 2, '#fff4cf');
         }
         ctx.globalAlpha = 1;
       }
     }
+    ctx.restore();
   }
 
   function render() {
@@ -906,17 +836,17 @@
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
       if (particle.kind === 'snow') particle.x += Math.sin(now / 240 + particle.y) * 0.4;
-      if (particle.kind === 'rain' && particle.y > 540) { particle.age = particle.life; addParticle(particle.x, 541, 0, 0, 120, '#d8efec', 'splash'); }
-      if (particle.kind === 'snow' && particle.y > 540) particle.age = particle.life;
+      if (particle.kind === 'rain' && particle.y > WORLD_HEIGHT - 24) { particle.age = particle.life; addParticle(particle.x, WORLD_HEIGHT - 23, 0, 0, 120, '#d8efec', 'splash'); }
+      if (particle.kind === 'snow' && particle.y > WORLD_HEIGHT - 24) particle.age = particle.life;
     }
     particles = particles.filter(particle => particle.age < particle.life);
     if (now - lastSmoke > 350) {
-      addParticle(19, 117, 0.025, -0.06, 850, '#f7f4e590', 'smoke');
+      addParticle(F.LAYOUT.home.x * TILE + 12, F.LAYOUT.home.y * TILE + 8, 0.025, -0.06, 850, '#f7f4e590', 'smoke');
       lastSmoke = now;
     }
     if ((state.weather === 'rain' || F.season(state) === '冬') && now - lastRain > 35) {
       const snow = F.season(state) === '冬';
-      for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % 768, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
+      for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % WORLD_WIDTH, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
       lastRain = now;
     }
     if (now - lastSpark >= 900) {
@@ -1103,7 +1033,7 @@
     input.direction = null;
     input.use = false;
     document.getElementById('home-confirm').hidden = true;
-    const path = F.findPath(state, 0, 3);
+    const path = F.findPath(state, F.LAYOUT.home.x, F.LAYOUT.home.y);
     if (!path) { enqueueToast('家门口暂时无法到达', 'alert'); return; }
     if (!path.length) { document.getElementById('home-confirm').hidden = false; return; }
     route = path;
@@ -1142,8 +1072,7 @@
   document.getElementById('touch-use').addEventListener('pointercancel', () => { input.use = false; });
   canvas.addEventListener('pointerdown', event => {
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor(((event.clientX - rect.left) / rect.width * 768 - FIELD_X) / TILE);
-    const y = Math.floor(((event.clientY - rect.top) / rect.height * 576 - FIELD_Y) / TILE);
+    const { x, y } = F.screenToCell(event.clientX, event.clientY, rect, camera, SCENE_WIDTH, SCENE_HEIGHT, TILE);
     if (x < 0 || x >= F.WIDTH || y < 0 || y >= F.HEIGHT) return;
     input.direction = null;
     route = [];

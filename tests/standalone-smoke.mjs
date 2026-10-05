@@ -15,8 +15,11 @@ const listeners = {};
 const windowListeners = {};
 let sceneWidth = 768;
 let blits = 0;
+let lastBlit = null;
 let staticRebuilds = 0;
-const drawing = { fillRect() {}, fillText() {}, scale() {}, clearRect() { staticRebuilds++; }, drawImage() { blits++; }, createLinearGradient() { return { addColorStop() {} }; }, moveTo() {}, lineTo() {}, beginPath() {}, ellipse() {}, fill() {}, stroke() {}, strokeRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, imageSmoothingEnabled: true };
+const drawing = { fillRect() {}, fillText() {}, scale() {}, clearRect() {}, drawImage(...args) { assert.equal(args.length, 9, '静态层仅裁切可见世界'); lastBlit = args; blits++; }, createLinearGradient() { return { addColorStop() {} }; }, moveTo() {}, lineTo() {}, beginPath() {}, ellipse() {}, fill() {}, stroke() {}, strokeRect() {}, save() {}, restore() {}, translate() {}, rotate() {}, imageSmoothingEnabled: true };
+const staticDrawing = { ...drawing, clearRect() { staticRebuilds++; } };
+const offscreen = { getContext: () => staticDrawing };
 function element(id) {
   if (!elements.has(id)) elements.set(id, {
     id, style: { setProperty(name, value) { this[name] = value; } }, dataset: {}, hidden: true,
@@ -42,7 +45,7 @@ function element(id) {
 }
 const document = {
   body: { classList: { add() {}, remove() {} } },
-  createElement(tag) { assert.equal(tag, 'canvas'); return { getContext: () => drawing }; },
+  createElement(tag) { assert.equal(tag, 'canvas'); return offscreen; },
   getElementById: element,
   querySelector: element,
   addEventListener(name, handler) { listeners[name] = handler; }
@@ -64,6 +67,8 @@ const context = vm.createContext({
 for (const script of scripts) vm.runInContext(script, context, { filename: file });
 assert.equal(element('farm').width, 3072);
 assert.equal(element('farm').height, 2304);
+assert.equal(offscreen.width, 1440);
+assert.equal(offscreen.height, 1008);
 assert.ok(context.PocketFarm);
 assert.equal(context.PocketFarm.createGame().tutorial, 0);
 const oldSave = context.PocketFarm.createGame();
@@ -84,11 +89,11 @@ assert.equal(callbacks.length, 1);
 callbacks.shift()(16);
 assert.equal(callbacks.length, 1);
 listeners.keydown({ key: 'ArrowUp', preventDefault() {} });
-assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 4);
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 3);
 assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.facing, 'up');
 now = 120;
 callbacks.shift()(now);
-assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 3);
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 2);
 listeners.keyup({ key: 'ArrowUp' });
 element('codex').on_click();
 assert.match(element('codex-list').innerHTML, /每 G 投入回收/);
@@ -125,6 +130,21 @@ assert.equal(element('farm').height, 1080);
 callbacks.shift()(now + 16);
 assert.equal(staticRebuilds, 2, '显示尺寸改变后静态层重绘');
 sceneWidth = 768;
+const farSave = context.PocketFarm.createGame();
+farSave.farmer = { x: 18, y: 8, facing: 'left' };
+storage.set('pocket-farm-save-v1', JSON.stringify(farSave));
+const farCallbacks = [];
+const farContext = vm.createContext({ document, window: { devicePixelRatio: 2, addEventListener() {} },
+  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+  performance: { now: () => now }, requestAnimationFrame: callback => farCallbacks.push(callback),
+  setTimeout: callback => { callback(); return 1; }, HTMLButtonElement: class {}, confirm: () => true, console });
+for (const script of scripts) vm.runInContext(script, farContext, { filename: file });
+assert.ok(lastBlit[1] > 0 && lastBlit[2] > 0, '远端出生时相机已裁切到地图右下');
+const farSource = lastBlit[1];
+element('.dpad').on_pointerdown({ pointerId: 4, target: { closest: () => ({ dataset: { direction: 'left' } }) }, preventDefault() {} });
+for (let i = 0; i < 12; i++) { now += 150; farCallbacks.shift()(now); }
+element('.dpad').on_pointerup({ pointerId: 4 });
+assert.ok(lastBlit[1] < farSource, '向左移动后相机跟随农夫');
 const planted = context.PocketFarm.createGame();
 assert.equal(context.PocketFarm.act(planted).ok, true);
 context.PocketFarm.selectTool(planted, 'seed');
@@ -138,7 +158,7 @@ const plantedContext = vm.createContext({
 });
 for (const script of scripts) vm.runInContext(script, plantedContext, { filename: file });
 listeners.keydown({ key: 'ArrowDown', preventDefault() {} });
-assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 5);
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).farmer.y, 4);
 listeners.keyup({ key: 'ArrowDown' });
 const tired = context.PocketFarm.createGame();
 tired.health = 25;
@@ -188,5 +208,5 @@ assert.equal(element('villager-panel').hidden, false);
 assert.match(element('villager-title').textContent, /村长/);
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
 console.log('新增 UI 断言通过：生命条、武器区、守夜按钮、村民入口、旧档退款和低生命警示。');
-console.log('播种后移动冒烟通过；3072×2304 与窄屏 1440×1080 backstore、逐帧贴图和静态层按需重绘断言通过。');
+console.log('播种后移动冒烟通过；相机裁切与跟随、3072×2304 与窄屏 1440×1080 backstore、逐帧贴图和静态层按需重绘断言通过。');
 console.log(`模拟 Canvas 连续 60 帧完成：总耗时 ${frameCost.toFixed(1)} ms，平均 ${(frameCost / 60).toFixed(2)} ms/帧。`);
