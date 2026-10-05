@@ -6,7 +6,7 @@
   const BEST_KEY = 'pocket-farm-best-days';
   const TILE = 48;
   const RENDER_SCALE = 2;
-  const STATIC_SCALE = 1.5;
+  const STATIC_SCALE = 2;
   const SCENE_WIDTH = 768;
   const SCENE_HEIGHT = 576;
   const FIELD_X = 0;
@@ -29,14 +29,15 @@
     canvas.width = width;
     canvas.height = height;
     sceneContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
-    sceneContext.imageSmoothingEnabled = true;
-    staticContext.imageSmoothingEnabled = true;
+    sceneContext.imageSmoothingEnabled = false;
+    staticContext.imageSmoothingEnabled = false;
     staticKey = '';
   }
   resizeCanvas();
   staticCanvas.width = Math.round(WORLD_WIDTH * STATIC_SCALE);
   staticCanvas.height = Math.round(WORLD_HEIGHT * STATIC_SCALE);
   staticContext.scale(STATIC_SCALE, STATIC_SCALE);
+  staticContext.imageSmoothingEnabled = false;
   window.addEventListener('resize', resizeCanvas);
 
   const palette = {
@@ -49,17 +50,17 @@
   const icons = { hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
   const WORLD_COLORS = {
-    water: '#6aaeb7', waterLight: '#a8d6c9', waterDeep: '#4c8fa4', waterGlint: '#d5f0df',
+    water: '#67b6b8', waterLight: '#98d7cf', waterDeep: '#2f7088', waterMid: '#3e91a4', waterGlint: '#d7f0d9',
     sand: '#c7ad75', sandDark: '#9d8158', path: '#b9a276', pathLight: '#d3c09a', pathDark: '#8d7655', gravel: '#9e8968',
     soil: '#8a6249', soilPlanted: '#78543f', furrow: '#684733', furrowLight: '#bb8e65', soilSpeck: '#af805c',
     bark: '#795d45', barkLight: '#a47b54', barkDark: '#5c4030', rootSoil: '#816547',
     wood: '#806447', woodLight: '#d9ba7f', woodDark: '#654d39', woodGrain: '#9d754f',
     wall: '#dfbf86', wallShade: '#cba873', window: '#ffe0a1', windowGlow: '#fff0bd', door: '#785b45', metal: '#d5ddd5',
-    roofHome: '#a26d4c', roofRidge: '#d18b5d', roofBlue: '#657f91', roofRed: '#a75d4f', roofMoss: '#667b50',
+    roofHome: '#be6846', roofRidge: '#edae70', roofShade: '#713e34', roofMid: '#9d503c', roofLight: '#da8956', roofBlue: '#657f91', roofRed: '#a75d4f', roofMoss: '#667b50',
     plaza: '#c9af80', plazaLight: '#e9d5a9', plazaEdge: '#a98d67', shadow: '#293c3655',
     springFlower: '#f5c4cf', springFlowerLight: '#fff0e6', summerFlower: '#f0ce58', summerFlowerLight: '#fff4bd',
     autumnLeaf: '#d9783f', autumnLeafLight: '#edb34f', frost: '#edf5ed', frostShade: '#cedfd9',
-    leafGreen: '#699a50', leafLight: '#a6c66d', dust: '#b58a62', star: '#ffe58a',
+    leafGreen: '#4f7f4b', leafLight: '#a7c96e', leafDeep: '#315d47', leafMid: '#74a75a', leafSun: '#d8dd8b', dust: '#b58a62', star: '#ffe58a',
     hutBlue: '#708baf', hutRed: '#bc745a', hutGreen: '#617c55', whiteFlash: '#fffdf5', cloudShadow: '#3d5b5528',
     springMid: '#d391a7', summerMid: '#4b8c50', autumnMid: '#c99d50',
     springTop: '#f2bdc5', summerTop: '#78b263', autumnTop: '#edce72', capeLight: '#503344', capeDark: '#422c3d',
@@ -342,20 +343,16 @@
   }
 
   function shadow(x, y, rx, ry) {
-    ctx.beginPath();
-    ctx.ellipse(Math.round(x + 3), Math.round(y + 3), rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = WORLD_COLORS.shadow;
-    ctx.fill();
+    box(x - rx + 3, y - ry + 3, rx * 2, ry * 2, WORLD_COLORS.shadow);
+    box(x - rx + 5, y - ry + 1, rx * 2 - 4, 2, WORLD_COLORS.shadow);
   }
 
   function pixelLine(x1, y1, x2, y2, color, size = 1) {
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = size / RENDER_SCALE;
-    ctx.lineCap = 'round';
-    ctx.stroke();
+    const dx = x2 - x1, dy = y2 - y1;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    const width = Math.max(1, Math.round(size));
+    if (!steps) { box(x1, y1, width, width, color); return; }
+    for (let i = 0; i <= steps; i++) box(x1 + dx * i / steps, y1 + dy * i / steps, width, width, color);
   }
 
   function drawBackground() {

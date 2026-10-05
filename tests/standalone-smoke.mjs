@@ -67,8 +67,8 @@ const context = vm.createContext({
 for (const script of scripts) vm.runInContext(script, context, { filename: file });
 assert.equal(element('farm').width, 3072);
 assert.equal(element('farm').height, 2304);
-assert.equal(offscreen.width, 2880);
-assert.equal(offscreen.height, 2016);
+assert.equal(offscreen.width, 3840);
+assert.equal(offscreen.height, 2688);
 assert.ok(context.PocketFarm);
 assert.equal(context.PocketFarm.createGame().version, 8);
 assert.equal(context.PocketFarm.createGame().tutorial, 0);
