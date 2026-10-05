@@ -10,11 +10,12 @@
   <div class="page">
     <header class="masthead">
       <div><span class="eyebrow">一方小田 · 四季慢生活</span><h1>口袋田园 <span>✿</span></h1></div>
-      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
+      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="orders-button" class="quiet-button" type="button">订单</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
     </header>
     <section class="status-bar" aria-label="农场状态">
       <div class="status-item"><span>日期</span><strong id="date"></strong></div>
       <div class="status-item"><span>天气</span><strong id="weather"></strong></div>
+      <div class="status-item"><span>预报</span><strong id="tomorrow"></strong></div>
       <div class="status-item"><span>金币</span><strong id="gold"></strong></div>
       <div class="status-item energy-item"><span>体力 <b id="energy-text"></b></span><div class="energy-track"><div id="energy-fill"></div></div></div>
     </section>
@@ -54,7 +55,8 @@
     </main>
     <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
   </div>
-  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="panel-heading"><h2>作物图鉴</h2><button id="close-codex" class="quiet-button" type="button">关闭</button></div><p>按每 G 种子投入的出售价排序</p><div id="codex-list"></div></div></div>
+  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="panel-heading"><h2>图鉴与统计</h2><button id="close-codex" class="quiet-button" type="button">关闭</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
+  <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="panel-heading"><h2>今日订单</h2><button id="close-orders" class="quiet-button" type="button">关闭</button></div><div id="orders-list"></div></div></div>
   <script src="farm-logic.js"></script>
   <script src="game.js"></script>
 </body>

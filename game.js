@@ -8,6 +8,10 @@
   const FIELD_Y = 96;
   const canvas = document.getElementById('farm');
   const ctx = canvas.getContext('2d');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(768 * dpr);
+  canvas.height = Math.round(576 * dpr);
+  ctx.scale(dpr, dpr);
   ctx.imageSmoothingEnabled = false;
 
   const palette = {
@@ -33,6 +37,10 @@
   let lastRain = 0;
   let audio = null;
   let muted = false;
+  let shake = null;
+  let route = [];
+  let routeNext = 0;
+  const input = { direction: null, source: null, next: 0, turned: false, use: false, useNext: 0 };
   try { muted = localStorage.getItem('pocket-farm-muted') === 'true'; } catch (_) { /* 存储不可用 */ }
 
   function load() {
@@ -102,14 +110,16 @@
     const target = F.frontCell(state);
     const tool = state.tool;
     const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
-    const outcome = F.act(state);
-    sound(outcome.ok ? tool : 'error');
+    const outcome = F.act(state, true);
+    if (!outcome.ok && outcome.message.includes('体力不足')) input.use = false;
+    sound(outcome.ok ? outcome.tool : 'error');
+    if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };
     if (outcome.ok) {
       swingUntil = performance.now() + 150;
       const x = FIELD_X + target.x * TILE + 24;
       const y = FIELD_Y + target.y * TILE + 20;
-      if (tool === 'water') for (let i = 0; i < 5; i++) addParticle(x + (i - 2) * 5, y, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
-      if (tool === 'scythe') {
+      if (outcome.tool === 'water') for (let i = 0; i < 5; i++) addParticle(x + (i - 2) * 5, y, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
+      if (outcome.tool === 'scythe') {
         addParticle(x, y, 0, -0.055, 600, '#fff5c2', 'text');
         for (let i = 0; i < 4; i++) addParticle(x, y, (680 - x) / 540 + (i - 2) * 0.03, (24 - y) / 540, 540, cropColors[harvested] || '#e8c373', 'spark');
       }
@@ -122,6 +132,50 @@
     const outcome = F.move(state, direction);
     if (outcome.ok) walkingUntil = performance.now() + 190;
     handle(outcome, true);
+  }
+
+  function pressDirection(direction, source) {
+    if (input.direction && input.source !== source) return;
+    if (input.direction === direction) return;
+    route = [];
+    input.direction = direction;
+    input.source = source;
+    const now = performance.now();
+    input.turned = state.farmer.facing !== direction;
+    if (input.turned) {
+      state.farmer.facing = direction;
+      handle({ ok: true, message: '转向', events: [] }, true);
+      input.next = now + 120;
+    } else {
+      move(direction);
+      input.next = now + 140;
+    }
+  }
+
+  function releaseDirection(source) {
+    if (input.source === source) { input.direction = null; input.source = null; }
+  }
+
+  function pressUse() {
+    if (input.use) return;
+    route = [];
+    input.use = true;
+    action();
+    input.useNext = performance.now() + 180;
+  }
+
+  function tickInput(now) {
+    if (input.direction && now >= input.next) {
+      move(input.direction);
+      input.next = now + 140;
+    }
+    if (input.use && now >= input.useNext) {
+      if (state.energy <= 0) {
+        input.use = false;
+        handle({ ok: false, message: '体力耗尽，回家睡一觉吧', events: [] }, false);
+      } else action();
+      input.useNext = now + 180;
+    }
   }
 
   function hash(x, y, n) {
@@ -137,7 +191,14 @@
   function label(text, x, y, color, size) {
     ctx.fillStyle = color;
     ctx.font = `bold ${size}px monospace`;
-    ctx.fillText(text, x, y);
+    ctx.fillText(text, Math.round(x), Math.round(y));
+  }
+
+  function shadow(x, y, rx, ry) {
+    ctx.beginPath();
+    ctx.ellipse(Math.round(x), Math.round(y), rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#293c3655';
+    ctx.fill();
   }
 
   function drawBackground() {
@@ -172,6 +233,37 @@
         box(px, py, 1, TILE, '#ffffff0a');
       }
     }
+    // 固定坐标的花丛和从家门到田边的石板路。
+    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) box(x, y, 11, 7, '#d5c5a1');
+    for (let i = 0; i < 18; i++) {
+      const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
+      if (x > 95 && x < 673 && y > 95 && y < 528) continue;
+      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
+      box(x + 2, y + 3, 2, 3, '#50824f');
+    }
+  }
+
+  function drawTree(x, y) {
+    const season = F.season(state);
+    box(x + 15, y + 20, 9, 38, '#795d45');
+    box(x + 8, y + 26, 24, 4, '#795d45');
+    if (season === '冬') {
+      box(x + 3, y + 24, 15, 3, '#eef5ec');
+      box(x + 23, y + 20, 15, 3, '#eef5ec');
+    } else {
+      const color = { '春': '#e7a5b1', '夏': '#5e9d58', '秋': '#dfbd62' }[season];
+      box(x + 4, y + 8, 32, 28, color);
+      box(x + 11, y, 19, 40, color);
+    }
+  }
+
+  function drawPond(now) {
+    box(12, 464, 73, 76, '#73997c');
+    box(18, 469, 62, 65, '#73b3bd');
+    box(24, 475, 50, 53, '#85c5c7');
+    const offset = Math.floor(now / 500) % 2 ? 4 : 0;
+    box(27 + offset, 488, 19, 2, '#d0e9d9');
+    box(48 - offset, 511, 17, 2, '#d0e9d9');
   }
 
   function drawHouse() {
@@ -206,6 +298,12 @@
       box(x, 536, 5, 16, '#806c4a');
       if (x < 660) { box(x, 78, 45, 3, '#b89765'); box(x, 542, 45, 3, '#b89765'); }
     }
+    for (let y = 91; y < 535; y += 48) {
+      box(87, y, 5, 16, '#806c4a');
+      box(677, y, 5, 16, '#806c4a');
+      box(89, y + 5, 3, 43, '#b89765');
+      box(678, y + 5, 3, 43, '#b89765');
+    }
   }
 
   function drawPlot(plot, x, y) {
@@ -226,7 +324,10 @@
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
       box(px + 2, py + 3, 2, 41, '#e8f0e9');
     }
-    if (plot.crop) drawCrop(ctx, plot.crop, px, py, performance.now());
+    if (plot.crop) {
+      shadow(px + 24, py + 38, 13, 4);
+      drawCrop(ctx, plot.crop, px, py, performance.now());
+    }
   }
 
   function drawCrop(target, crop, px, py, now) {
@@ -317,7 +418,7 @@
     const walking = now < walkingUntil;
     const step = walking ? Math.floor(now / 95) % 2 : 0;
     const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -step * 2 : Math.floor(now / 900) % 2);
-    box(x + 5, y + 36, 28, 5, '#4d60405c');
+    shadow(x + 21, y + 39, 16, 5);
     box(x + 9, y + 31 + step, 8, 7, '#524c57');
     box(x + 24, y + 31 - step, 8, 7, '#524c57');
     box(x + 8, y + 20, 25, 13, '#557d8b');
@@ -351,16 +452,28 @@
   function drawScene(now) {
     drawBackground();
     drawHouse();
+    drawPond(now);
+    drawTree(37, 274);
+    drawTree(685, 111);
+    drawTree(694, 380);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
     const front = F.frontCell(state);
     if (front.x >= 0 && front.y >= 0 && front.x < F.WIDTH && front.y < F.HEIGHT) {
       const px = FIELD_X + front.x * TILE, py = FIELD_Y + front.y * TILE;
+      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 350);
       box(px + 3, py + 2, 42, 3, '#fff0aa');
       box(px + 3, py + 43, 42, 3, '#fff0aa');
       box(px + 2, py + 3, 3, 40, '#fff0aa');
       box(px + 43, py + 3, 3, 40, '#fff0aa');
+      ctx.globalAlpha = 1;
+    }
+    if (shake && now < shake.until) {
+      const px = FIELD_X + shake.x * TILE, py = FIELD_Y + shake.y * TILE;
+      ctx.strokeStyle = '#d06b50';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + (Math.floor(now / 25) % 2 ? 2 : -2) + 3, py + 3, 42, 42);
     }
     drawFarmer(now);
     for (const particle of particles) {
@@ -378,28 +491,37 @@
   function render() {
     document.getElementById('date').textContent = `${F.season(state)} · 第 ${F.seasonDay(state)} 天`;
     document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
+    document.getElementById('tomorrow').textContent = `明日：${state.tomorrow === 'rain' ? '雨' : '晴'}`;
     document.getElementById('gold').textContent = `${state.gold} G`;
     document.getElementById('energy-text').textContent = `${state.energy} / ${F.ENERGY_MAX}`;
     document.getElementById('energy-fill').style.width = `${state.energy / F.ENERGY_MAX * 100}%`;
     document.getElementById('tools').innerHTML = keys.map((key, i) =>
-      `<button type="button" class="tool ${state.tool === key ? 'active' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}</span><span>${F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
+      `<button type="button" class="tool ${state.tool === key ? 'active' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${state.upgrades[key] ? (key === 'hoe' ? '精钢锄' : '铁水壶') : F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
     ).join('');
     document.getElementById('crop-options').innerHTML = '<span>播种：</span>' + Object.entries(F.CROPS).map(([key, crop]) =>
       `<button type="button" class="crop-choice ${state.selectedCrop === key ? 'active' : ''}" data-crop="${key}" aria-pressed="${state.selectedCrop === key}">${crop.name} × ${state.seeds[key]}</button>`
     ).join('');
     document.getElementById('bag').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
       `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><strong>× ${state.bag[key]}</strong></div>`
-    ).join('');
+    ).join('') + `<div class="bag-row"><span>饭团</span><button type="button" data-eat="snack">吃掉 × ${state.snacks}</button></div>`;
     document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
       `<div class="shop-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}<small>${crop.days} 天 · 售 ${crop.sellPrice} G</small></span><button type="button" data-buy="${key}">买种子 ${crop.seedPrice} G</button></div>`
-    ).join('');
+    ).join('') + `<div class="shop-row"><span>精钢锄<small>锄地体力减半</small></span><button type="button" data-upgrade="hoe" ${state.upgrades.hoe ? 'disabled' : ''}>${state.upgrades.hoe ? '已购买' : '400 G'}</button></div><div class="shop-row"><span>铁水壶<small>面前三格浇水</small></span><button type="button" data-upgrade="water" ${state.upgrades.water ? 'disabled' : ''}>${state.upgrades.water ? '已购买' : '600 G'}</button></div><div class="shop-row"><span>饭团<small>恢复 15 体力</small></span><button type="button" data-snack="buy">20 G</button></div>`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
+    document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" data-deliver="${order.id}">交付</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
+    document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>完成订单：${state.stats.orders}</p><p>已玩天数：${state.stats.days}</p>`;
     drawScene(performance.now());
   }
 
   function frame(now) {
     const dt = Math.min(50, now - (lastFrame || now));
     lastFrame = now;
+    tickInput(now);
+    if (route.length && !input.direction && now >= routeNext) {
+      move(route.shift());
+      routeNext = now + 140;
+      if (!route.length) handle({ ok: true, message: '已走到目标地块旁', events: [] }, false);
+    }
     for (const particle of particles) {
       particle.age += dt;
       particle.x += particle.vx * dt;
@@ -440,22 +562,36 @@
       drawCrop(context, { type: preview.dataset.preview, progress: F.CROPS[preview.dataset.preview].days }, 0, 0, 0);
     }
     document.getElementById('codex-panel').hidden = false;
+    document.getElementById('orders-panel').hidden = true;
+    document.body.classList.add('modal-open');
   }
 
+  function closePanels() {
+    document.getElementById('codex-panel').hidden = true;
+    document.getElementById('orders-panel').hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+
+  const directionKeys = { w: 'up', ArrowUp: 'up', s: 'down', ArrowDown: 'down', a: 'left', ArrowLeft: 'left', d: 'right', ArrowRight: 'right' };
   document.addEventListener('keydown', event => {
-    if (!document.getElementById('codex-panel').hidden) {
-      if (event.key === 'Escape') document.getElementById('codex-panel').hidden = true;
+    if (!document.getElementById('codex-panel').hidden || !document.getElementById('orders-panel').hidden) {
+      if (event.key === 'Escape') closePanels();
       return;
     }
-    const direction = { w: 'up', ArrowUp: 'up', s: 'down', ArrowDown: 'down', a: 'left', ArrowLeft: 'left', d: 'right', ArrowRight: 'right' }[event.key];
-    if (direction) { event.preventDefault(); move(direction); return; }
+    const direction = directionKeys[event.key];
+    if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
     if (event.key >= '1' && event.key <= '4') { initAudio(); handle(F.selectTool(state, keys[Number(event.key) - 1]), true); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
       event.preventDefault();
-      action();
+      pressUse();
     }
   });
+  document.addEventListener('keyup', event => {
+    if (directionKeys[event.key]) releaseDirection(`key:${event.key}`);
+    if (event.key === ' ' || event.key === 'Enter') input.use = false;
+  });
+  window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; });
   document.getElementById('tools').addEventListener('click', event => {
     const button = event.target.closest('[data-tool]');
     if (button) { initAudio(); handle(F.selectTool(state, button.dataset.tool), true); }
@@ -467,6 +603,12 @@
   document.getElementById('shop').addEventListener('click', event => {
     const button = event.target.closest('[data-buy]');
     if (button) { initAudio(); const outcome = F.buySeed(state, button.dataset.buy, 1); if (!outcome.ok) sound('error'); handle(outcome, true); }
+    const upgrade = event.target.closest('[data-upgrade]');
+    if (upgrade) { const outcome = F.buyUpgrade(state, upgrade.dataset.upgrade); if (!outcome.ok) sound('error'); handle(outcome, true); }
+    if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) sound('error'); handle(outcome, true); }
+  });
+  document.getElementById('bag').addEventListener('click', event => {
+    if (event.target.closest('[data-eat]')) { const outcome = F.eatSnack(state); if (!outcome.ok) sound('error'); handle(outcome, true); }
   });
   document.getElementById('sell-all').addEventListener('click', () => {
     initAudio();
@@ -481,9 +623,32 @@
   });
   document.querySelector('.dpad').addEventListener('pointerdown', event => {
     const button = event.target.closest('[data-direction]');
-    if (button) { event.preventDefault(); move(button.dataset.direction); }
+    if (button) { event.preventDefault(); button.setPointerCapture?.(event.pointerId); pressDirection(button.dataset.direction, `pointer:${event.pointerId}`); }
   });
-  document.getElementById('touch-use').addEventListener('pointerdown', event => { event.preventDefault(); action(); });
+  document.querySelector('.dpad').addEventListener('pointerup', event => releaseDirection(`pointer:${event.pointerId}`));
+  document.querySelector('.dpad').addEventListener('pointercancel', event => releaseDirection(`pointer:${event.pointerId}`));
+  document.getElementById('touch-use').addEventListener('pointerdown', event => { event.preventDefault(); event.currentTarget.setPointerCapture?.(event.pointerId); pressUse(); });
+  document.getElementById('touch-use').addEventListener('pointerup', () => { input.use = false; });
+  document.getElementById('touch-use').addEventListener('pointercancel', () => { input.use = false; });
+  canvas.addEventListener('pointerdown', event => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor(((event.clientX - rect.left) / rect.width * 768 - FIELD_X) / TILE);
+    const y = Math.floor(((event.clientY - rect.top) / rect.height * 576 - FIELD_Y) / TILE);
+    if (x < 0 || x >= F.WIDTH || y < 0 || y >= F.HEIGHT) return;
+    input.direction = null;
+    route = [];
+    const distance = Math.abs(x - state.farmer.x) + Math.abs(y - state.farmer.y);
+    if (distance === 1) {
+      state.farmer.facing = Object.entries(F.DIRECTIONS).find(([, [dx, dy]]) => state.farmer.x + dx === x && state.farmer.y + dy === y)[0];
+      action();
+      return;
+    }
+    if (distance === 0) return;
+    const path = F.findPath(state, x, y);
+    if (!path) { sound('error'); handle({ ok: false, message: '没有通往目标地块旁的路', events: [] }, false); return; }
+    route = path;
+    routeNext = performance.now();
+  });
   document.getElementById('farm').addEventListener('touchmove', event => event.preventDefault(), { passive: false });
   document.getElementById('mute').addEventListener('click', () => {
     initAudio();
@@ -497,15 +662,27 @@
     button.setAttribute('aria-pressed', String(muted));
   }
   document.getElementById('codex').addEventListener('click', () => { initAudio(); openCodex(); });
-  document.getElementById('close-codex').addEventListener('click', () => { document.getElementById('codex-panel').hidden = true; });
-  document.getElementById('codex-panel').addEventListener('click', event => {
-    if (event.target.id === 'codex-panel') event.currentTarget.hidden = true;
+  document.getElementById('orders-button').addEventListener('click', () => { initAudio(); document.getElementById('orders-panel').hidden = false; document.getElementById('codex-panel').hidden = true; document.body.classList.add('modal-open'); });
+  document.getElementById('orders-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-deliver]');
+    if (button) { const outcome = F.deliverOrder(state, Number(button.dataset.deliver)); if (!outcome.ok) sound('error'); else sound('sell'); handle(outcome, true); }
   });
+  document.getElementById('close-codex').addEventListener('click', closePanels);
+  document.getElementById('close-orders').addEventListener('click', closePanels);
+  document.getElementById('crop-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = false; document.getElementById('stats-list').hidden = true; });
+  document.getElementById('stats-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = true; document.getElementById('stats-list').hidden = false; });
+  document.getElementById('codex-panel').addEventListener('click', event => {
+    if (event.target.id === 'codex-panel') closePanels();
+  });
+  document.getElementById('orders-panel').addEventListener('click', event => { if (event.target.id === 'orders-panel') closePanels(); });
   document.getElementById('new-game').addEventListener('click', () => {
     if (!confirm('开始新游戏？当前农场进度会被覆盖。')) return;
     sleepStart = 0;
     sleepPending = false;
     particles = [];
+    route = [];
+    input.direction = null;
+    input.use = false;
     state = F.createGame();
     journal = ['新的农场生活开始了！'];
     handle({ ok: true, message: '新游戏已开始', events: [] }, true);

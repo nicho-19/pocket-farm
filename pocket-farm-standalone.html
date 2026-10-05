@@ -17,7 +17,7 @@ h1 span{color:#d79a67;font-size:27px;vertical-align:top}
 h2{font-size:16px;margin:0;color:#3a5540}
 .quiet-button{background:#f8f4e5;border:1px solid #c9ccb3;color:#65765e;border-radius:8px;padding:10px 15px;box-shadow:0 2px 0 #c7c6aa}
 .quiet-button:hover,.shop-list button:hover{background:#e8eed8}
-.status-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1.6fr;gap:0;background:var(--paper);border:2px solid #d9d5b7;border-bottom-width:4px;border-radius:13px;padding:12px 5px;margin-bottom:17px;box-shadow:0 7px 22px #65785d18}
+.status-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.6fr;gap:0;background:var(--paper);border:2px solid #d9d5b7;border-bottom-width:4px;border-radius:13px;padding:12px 5px;margin-bottom:17px;box-shadow:0 7px 22px #65785d18}
 .status-item{padding:3px 22px;border-right:1px solid #e5e1ca;display:flex;flex-direction:column;gap:5px;min-height:42px}.status-item:last-child{border:0}
 .status-item span{color:var(--muted);font-size:11px;letter-spacing:.08em}.status-item strong{font-size:17px;color:#3c5d43}.energy-item span{display:flex;justify-content:space-between}.energy-item b{font-weight:normal;letter-spacing:0}
 .energy-track{height:13px;border:2px solid #8a9b75;background:#e4e8d5;border-radius:5px;overflow:hidden;margin-top:5px}.energy-track div{height:100%;width:100%;background:linear-gradient(90deg,#85b56c,#bdd67d);transition:width .2s}
@@ -36,7 +36,18 @@ h2{font-size:16px;margin:0;color:#3a5540}
 .log-card ul{padding:0;margin:0;list-style:none;max-height:150px;overflow:auto}.log-card li{font-size:12px;line-height:1.55;padding:6px 2px;border-top:1px dashed #e5e0c9;color:#667560}.log-card li:first-child{border-top:0}.log-card li:before{content:'✦';color:#ca9b63;margin-right:8px}footer{text-align:center;color:#8b987e;font-size:11px;padding:21px 0 2px}
 @media(max-width:1000px){.main-grid{grid-template-columns:minmax(0,1fr) 280px}.page{padding:18px}.tool{flex-direction:column;gap:1px}}
 @media(max-width:760px){.main-grid{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sidebar .side-card{margin:0}.status-item{padding:3px 10px}.status-item strong{font-size:14px}.touch-controls{display:flex}}
-@media(max-width:520px){.page{padding:12px}.masthead{margin-bottom:13px}h1{font-size:30px}.header-actions .quiet-button{padding:8px;font-size:12px}.status-bar{grid-template-columns:repeat(2,1fr);row-gap:10px}.status-item:nth-child(2){border-right:0}.sidebar{display:block}.sidebar .side-card{margin-top:12px}.tool{font-size:11px}.panel-heading span{font-size:10px}}
+@media(max-width:520px){.page{padding:12px}.masthead{margin-bottom:13px}h1{font-size:30px}.header-actions .quiet-button{padding:8px;font-size:12px}.status-bar{grid-template-columns:repeat(2,1fr);row-gap:10px}.status-item:nth-child(2),.status-item:nth-child(4){border-right:0}.energy-item{grid-column:span 2}.sidebar{display:block}.sidebar .side-card{margin-top:12px}.tool{font-size:11px}.panel-heading span{font-size:10px}}
+.status-bar,.tool-panel,.side-card,.modal-card{background:linear-gradient(145deg,#fffaf0 0%,#f7efd9 100%);border-color:#a5784f;box-shadow:inset 0 0 0 2px #ecd3a6,0 5px 17px #593b2b20}
+.status-item strong,.energy-item b{font-weight:800}
+.tool.active{outline:2px solid #d8a95b;box-shadow:0 0 12px #e6ba65,inset 0 0 0 1px #fff}
+.log-card li:first-child{animation:log-fade .45s ease-out}@keyframes log-fade{from{opacity:0}to{opacity:1}}
+.dpad button,.touch-use{min-width:56px;min-height:56px;background:#e7efd9ce;transition:transform .08s;backdrop-filter:blur(2px)}
+.dpad{grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px)}
+.dpad button:active,.touch-use:active{transform:scale(.92)}
+.modal-open .touch-controls{visibility:hidden}
+.order-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px dashed #d6c099;padding:12px 0;font-size:13px;line-height:1.7}
+.order-row button,.bag-row button,.tabs button{border:1px solid #af885b;background:#f5e8c7;border-radius:6px;padding:8px 12px;color:#5c4c32}
+.tabs{display:flex;gap:8px;margin:12px 0}
 
 </style>
 </head>
@@ -44,11 +55,12 @@ h2{font-size:16px;margin:0;color:#3a5540}
   <div class="page">
     <header class="masthead">
       <div><span class="eyebrow">一方小田 · 四季慢生活</span><h1>口袋田园 <span>✿</span></h1></div>
-      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
+      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="orders-button" class="quiet-button" type="button">订单</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
     </header>
     <section class="status-bar" aria-label="农场状态">
       <div class="status-item"><span>日期</span><strong id="date"></strong></div>
       <div class="status-item"><span>天气</span><strong id="weather"></strong></div>
+      <div class="status-item"><span>预报</span><strong id="tomorrow"></strong></div>
       <div class="status-item"><span>金币</span><strong id="gold"></strong></div>
       <div class="status-item energy-item"><span>体力 <b id="energy-text"></b></span><div class="energy-track"><div id="energy-fill"></div></div></div>
     </section>
@@ -88,7 +100,8 @@ h2{font-size:16px;margin:0;color:#3a5540}
     </main>
     <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
   </div>
-  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="panel-heading"><h2>作物图鉴</h2><button id="close-codex" class="quiet-button" type="button">关闭</button></div><p>按每 G 种子投入的出售价排序</p><div id="codex-list"></div></div></div>
+  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="panel-heading"><h2>图鉴与统计</h2><button id="close-codex" class="quiet-button" type="button">关闭</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
+  <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="panel-heading"><h2>今日订单</h2><button id="close-orders" class="quiet-button" type="button">关闭</button></div><div id="orders-list"></div></div></div>
   <script>
 (function (root) {
   'use strict';
@@ -96,7 +109,7 @@ h2{font-size:16px;margin:0;color:#3a5540}
   const WIDTH = 12;
   const HEIGHT = 9;
   const ENERGY_MAX = 40;
-  const RAIN_CHANCE = 0.25;
+  const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
   const CROPS = {
     carrot: { name: '萝卜', days: 3, seedPrice: 10, sellPrice: 25 },
@@ -125,9 +138,10 @@ h2{font-size:16px;margin:0;color:#3a5540}
 
   function createGame() {
     return {
-      version: 2,
+      version: 3,
       day: 1,
       weather: 'sunny',
+      tomorrow: 'sunny',
       gold: 100,
       energy: ENERGY_MAX,
       farmer: { x: 5, y: 4, facing: 'down' },
@@ -135,12 +149,18 @@ h2{font-size:16px;margin:0;color:#3a5540}
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
       bag: cropCounts(),
+      snacks: 0,
+      upgrades: { hoe: false, water: false },
+      orders: [],
+      nextOrderId: 1,
+      stats: { income: 0, harvested: 0, orders: 0, days: 0 },
+      manualTool: false,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
   }
 
   function migrateSave(saved) {
-    if (!saved || ![1, 2].includes(saved.version) ||
+    if (!saved || ![1, 2, 3].includes(saved.version) ||
         !Array.isArray(saved.plots) || saved.plots.length !== HEIGHT ||
         !saved.plots.every(row => Array.isArray(row) && row.length === WIDTH) ||
         !saved.farmer || !inBounds(saved.farmer.x, saved.farmer.y) ||
@@ -155,7 +175,14 @@ h2{font-size:16px;margin:0;color:#3a5540}
             (plot.crop && !CROPS[plot.crop.type])) return null;
       }
     }
-    saved.version = 2;
+    saved.tomorrow = saved.tomorrow === 'rain' ? 'rain' : 'sunny';
+    saved.snacks = Number.isInteger(saved.snacks) && saved.snacks >= 0 ? saved.snacks : 0;
+    saved.upgrades = { hoe: !!saved.upgrades?.hoe, water: !!saved.upgrades?.water };
+    saved.orders = Array.isArray(saved.orders) ? saved.orders.filter(order => CROPS[order.crop] && Number.isInteger(order.amount) && order.amount > 0 && Number.isInteger(order.deadline) && Number.isInteger(order.reward)) : [];
+    saved.nextOrderId = Number.isInteger(saved.nextOrderId) ? saved.nextOrderId : 1;
+    saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, ...saved.stats };
+    saved.manualTool = !!saved.manualTool;
+    saved.version = 3;
     return saved;
   }
 
@@ -187,6 +214,7 @@ h2{font-size:16px;margin:0;color:#3a5540}
     const x = state.farmer.x + dx;
     const y = state.farmer.y + dy;
     if (!inBounds(x, y)) return result(false, '农场边界，不能再往前走了');
+    if (state.plots[y][x].crop) return result(false, '作物挡住了去路');
     state.farmer.x = x;
     state.farmer.y = y;
     return result(true, '移动', []);
@@ -195,6 +223,7 @@ h2{font-size:16px;margin:0;color:#3a5540}
   function selectTool(state, tool) {
     if (!TOOLS[tool]) return result(false, '无效工具');
     state.tool = tool;
+    state.manualTool = true;
     return result(true, `已选择${TOOLS[tool].name}`, []);
   }
 
@@ -204,13 +233,20 @@ h2{font-size:16px;margin:0;color:#3a5540}
     return result(true, `已选择${CROPS[crop].name}种子`, []);
   }
 
-  function act(state) {
+  function act(state, smart) {
     const { x, y } = frontCell(state);
     if (!inBounds(x, y)) return result(false, '前方没有地块');
     const plot = state.plots[y][x];
-    const tool = state.tool;
+    let tool = state.tool;
+    if (smart && !state.manualTool) {
+      if (plot.crop && plot.crop.progress >= CROPS[plot.crop.type].days) tool = 'scythe';
+      else if (plot.crop && !plot.watered) tool = 'water';
+      else if (plot.tilled && !plot.crop && state.seeds[state.selectedCrop] > 0) tool = 'seed';
+      else if (!plot.tilled) tool = 'hoe';
+    }
     const crop = state.selectedCrop;
-    if (state.energy < TOOLS[tool].cost) return result(false, '体力不足，回家睡一觉吧');
+    const cost = tool === 'hoe' && state.upgrades.hoe ? 2 : TOOLS[tool].cost;
+    if (state.energy < cost) return result(false, '体力不足，回家睡一觉吧');
 
     let message;
     if (tool === 'hoe') {
@@ -228,19 +264,24 @@ h2{font-size:16px;margin:0;color:#3a5540}
     } else if (tool === 'water') {
       if (!plot.crop) return result(false, '这里没有需要浇水的作物');
       if (plot.watered) return result(false, '这块地今天已经浇过水了');
-      plot.watered = true;
+      const cells = state.upgrades.water ? [-1, 0, 1] : [0];
+      for (const offset of cells) {
+        const side = ['up', 'down'].includes(state.farmer.facing) ? state.plots[y]?.[x + offset] : state.plots[y + offset]?.[x];
+        if (side?.crop) side.watered = true;
+      }
       message = `给${CROPS[plot.crop.type].name}浇了水`;
     } else if (tool === 'scythe') {
       if (!plot.crop) return result(false, '这里没有作物');
       const planted = plot.crop;
       if (planted.progress < CROPS[planted.type].days) return result(false, '作物还没有成熟');
       state.bag[planted.type]++;
+      state.stats.harvested++;
       plot.crop = null;
       plot.watered = false;
       message = `收获了${CROPS[planted.type].name}，已放入背包`;
     }
-    state.energy -= TOOLS[tool].cost;
-    return result(true, message);
+    state.energy -= cost;
+    return { ...result(true, message), tool };
   }
 
   function buySeed(state, crop, amount) {
@@ -262,7 +303,78 @@ h2{font-size:16px;margin:0;color:#3a5540}
     }
     if (!count) return result(false, '背包里还没有可以卖的作物');
     state.gold += total;
+    state.stats.income += total;
     return result(true, `卖出 ${count} 份收获，获得 ${total} 金币`);
+  }
+
+  function buyUpgrade(state, tool) {
+    const price = { hoe: 400, water: 600 }[tool];
+    if (!price) return result(false, '无效升级');
+    if (state.upgrades[tool]) return result(false, '已经升级过了');
+    if (state.gold < price) return result(false, '金币不够');
+    state.gold -= price;
+    state.upgrades[tool] = true;
+    return result(true, `升级了${tool === 'hoe' ? '精钢锄' : '铁水壶'}`);
+  }
+
+  function buySnack(state) {
+    if (state.gold < 20) return result(false, '金币不够');
+    state.gold -= 20;
+    state.snacks++;
+    return result(true, '买了一个饭团');
+  }
+
+  function eatSnack(state) {
+    if (!state.snacks) return result(false, '背包里没有饭团');
+    if (state.energy >= ENERGY_MAX) return result(false, '体力已经满了');
+    state.snacks--;
+    state.energy = Math.min(ENERGY_MAX, state.energy + 15);
+    return result(true, '吃饭团恢复了体力');
+  }
+
+  function generateOrders(state, random) {
+    const roll = random || Math.random;
+    const available = Object.keys(CROPS).filter(key => CROPS[key].seedPrice <= Math.max(30, state.gold + 20));
+    const count = 1 + Math.floor(roll() * 3);
+    state.orders = Array.from({ length: count }, () => {
+      const crop = available[Math.floor(roll() * available.length)];
+      const amount = 1; // 一块地的一茬收获一份。
+      return { id: state.nextOrderId++, crop, amount, deadline: state.day + 2 + Math.floor(roll() * 3), reward: Math.round(CROPS[crop].sellPrice * amount * 1.5) + 5 + Math.floor(roll() * 11) };
+    });
+    return state.orders;
+  }
+
+  function deliverOrder(state, id) {
+    const index = state.orders.findIndex(order => order.id === id);
+    if (index < 0) return result(false, '订单已失效');
+    const order = state.orders[index];
+    if (state.day > order.deadline) return result(false, '订单已过期');
+    if (state.bag[order.crop] < order.amount) return result(false, '背包里的作物不够');
+    state.bag[order.crop] -= order.amount;
+    state.gold += order.reward;
+    state.stats.income += order.reward;
+    state.stats.orders++;
+    state.orders.splice(index, 1);
+    return result(true, `交付${CROPS[order.crop].name}订单，获得 ${order.reward} G`);
+  }
+
+  function findPath(state, targetX, targetY) {
+    if (!inBounds(targetX, targetY)) return null;
+    const start = state.farmer;
+    const queue = [{ x: start.x, y: start.y, path: [] }];
+    const seen = new Set([`${start.x},${start.y}`]);
+    for (let i = 0; i < queue.length; i++) {
+      const node = queue[i];
+      if (Math.abs(node.x - targetX) + Math.abs(node.y - targetY) === 1) return node.path;
+      for (const [direction, [dx, dy]] of Object.entries(DIRECTIONS)) {
+        const x = node.x + dx, y = node.y + dy, key = `${x},${y}`;
+        if (inBounds(x, y) && !seen.has(key) && !state.plots[y][x].crop) {
+          seen.add(key);
+          queue.push({ x, y, path: [...node.path, direction] });
+        }
+      }
+    }
+    return null;
   }
 
   function sleep(state, random) {
@@ -280,8 +392,9 @@ h2{font-size:16px;margin:0;color:#3a5540}
     }
     state.day++;
     state.energy = ENERGY_MAX;
-    const roll = (random || Math.random)();
-    state.weather = roll < RAIN_CHANCE ? 'rain' : 'sunny';
+    const roll = random || Math.random;
+    state.weather = state.tomorrow;
+    state.tomorrow = roll() < RAIN_CHANCE[season(state)] ? 'rain' : 'sunny';
     if (state.weather === 'rain') {
       for (const row of state.plots) {
         for (const plot of row) if (plot.crop) plot.watered = true;
@@ -291,13 +404,17 @@ h2{font-size:16px;margin:0;color:#3a5540}
       events.push('今天是晴天，记得给作物浇水');
     }
     if (seasonDay(state) === 1) events.push(`进入${season(state)}季`);
+    state.stats.days++;
+    const expired = state.orders.filter(order => state.day > order.deadline);
+    if (expired.length) events.push(`${expired.length} 个订单过期失效`);
+    generateOrders(state, roll);
     return result(true, `睡了一觉，来到第 ${state.day} 天`, events);
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, ENERGY_MAX, RAIN_CHANCE, CROPS, TOOLS,
+    WIDTH, HEIGHT, ENERGY_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
-    act, buySeed, sellAll, sleep
+    act, buySeed, sellAll, sleep, buyUpgrade, buySnack, eatSnack, generateOrders, deliverOrder, findPath
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
 
@@ -313,6 +430,10 @@ h2{font-size:16px;margin:0;color:#3a5540}
   const FIELD_Y = 96;
   const canvas = document.getElementById('farm');
   const ctx = canvas.getContext('2d');
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(768 * dpr);
+  canvas.height = Math.round(576 * dpr);
+  ctx.scale(dpr, dpr);
   ctx.imageSmoothingEnabled = false;
 
   const palette = {
@@ -338,6 +459,10 @@ h2{font-size:16px;margin:0;color:#3a5540}
   let lastRain = 0;
   let audio = null;
   let muted = false;
+  let shake = null;
+  let route = [];
+  let routeNext = 0;
+  const input = { direction: null, source: null, next: 0, turned: false, use: false, useNext: 0 };
   try { muted = localStorage.getItem('pocket-farm-muted') === 'true'; } catch (_) { /* 存储不可用 */ }
 
   function load() {
@@ -407,14 +532,16 @@ h2{font-size:16px;margin:0;color:#3a5540}
     const target = F.frontCell(state);
     const tool = state.tool;
     const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
-    const outcome = F.act(state);
-    sound(outcome.ok ? tool : 'error');
+    const outcome = F.act(state, true);
+    if (!outcome.ok && outcome.message.includes('体力不足')) input.use = false;
+    sound(outcome.ok ? outcome.tool : 'error');
+    if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };
     if (outcome.ok) {
       swingUntil = performance.now() + 150;
       const x = FIELD_X + target.x * TILE + 24;
       const y = FIELD_Y + target.y * TILE + 20;
-      if (tool === 'water') for (let i = 0; i < 5; i++) addParticle(x + (i - 2) * 5, y, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
-      if (tool === 'scythe') {
+      if (outcome.tool === 'water') for (let i = 0; i < 5; i++) addParticle(x + (i - 2) * 5, y, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
+      if (outcome.tool === 'scythe') {
         addParticle(x, y, 0, -0.055, 600, '#fff5c2', 'text');
         for (let i = 0; i < 4; i++) addParticle(x, y, (680 - x) / 540 + (i - 2) * 0.03, (24 - y) / 540, 540, cropColors[harvested] || '#e8c373', 'spark');
       }
@@ -427,6 +554,50 @@ h2{font-size:16px;margin:0;color:#3a5540}
     const outcome = F.move(state, direction);
     if (outcome.ok) walkingUntil = performance.now() + 190;
     handle(outcome, true);
+  }
+
+  function pressDirection(direction, source) {
+    if (input.direction && input.source !== source) return;
+    if (input.direction === direction) return;
+    route = [];
+    input.direction = direction;
+    input.source = source;
+    const now = performance.now();
+    input.turned = state.farmer.facing !== direction;
+    if (input.turned) {
+      state.farmer.facing = direction;
+      handle({ ok: true, message: '转向', events: [] }, true);
+      input.next = now + 120;
+    } else {
+      move(direction);
+      input.next = now + 140;
+    }
+  }
+
+  function releaseDirection(source) {
+    if (input.source === source) { input.direction = null; input.source = null; }
+  }
+
+  function pressUse() {
+    if (input.use) return;
+    route = [];
+    input.use = true;
+    action();
+    input.useNext = performance.now() + 180;
+  }
+
+  function tickInput(now) {
+    if (input.direction && now >= input.next) {
+      move(input.direction);
+      input.next = now + 140;
+    }
+    if (input.use && now >= input.useNext) {
+      if (state.energy <= 0) {
+        input.use = false;
+        handle({ ok: false, message: '体力耗尽，回家睡一觉吧', events: [] }, false);
+      } else action();
+      input.useNext = now + 180;
+    }
   }
 
   function hash(x, y, n) {
@@ -442,7 +613,14 @@ h2{font-size:16px;margin:0;color:#3a5540}
   function label(text, x, y, color, size) {
     ctx.fillStyle = color;
     ctx.font = `bold ${size}px monospace`;
-    ctx.fillText(text, x, y);
+    ctx.fillText(text, Math.round(x), Math.round(y));
+  }
+
+  function shadow(x, y, rx, ry) {
+    ctx.beginPath();
+    ctx.ellipse(Math.round(x), Math.round(y), rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#293c3655';
+    ctx.fill();
   }
 
   function drawBackground() {
@@ -477,6 +655,37 @@ h2{font-size:16px;margin:0;color:#3a5540}
         box(px, py, 1, TILE, '#ffffff0a');
       }
     }
+    // 固定坐标的花丛和从家门到田边的石板路。
+    for (let x = 75; x < 105; x += 15) for (let y = 223; y < 270; y += 17) box(x, y, 11, 7, '#d5c5a1');
+    for (let i = 0; i < 18; i++) {
+      const x = 8 + Math.floor(hash(i, 31, 8) * 750), y = 91 + Math.floor(hash(i, 19, 9) * 470);
+      if (x > 95 && x < 673 && y > 95 && y < 528) continue;
+      box(x, y, 3, 3, i % 2 ? '#f7d7a2' : '#f5a6ad');
+      box(x + 2, y + 3, 2, 3, '#50824f');
+    }
+  }
+
+  function drawTree(x, y) {
+    const season = F.season(state);
+    box(x + 15, y + 20, 9, 38, '#795d45');
+    box(x + 8, y + 26, 24, 4, '#795d45');
+    if (season === '冬') {
+      box(x + 3, y + 24, 15, 3, '#eef5ec');
+      box(x + 23, y + 20, 15, 3, '#eef5ec');
+    } else {
+      const color = { '春': '#e7a5b1', '夏': '#5e9d58', '秋': '#dfbd62' }[season];
+      box(x + 4, y + 8, 32, 28, color);
+      box(x + 11, y, 19, 40, color);
+    }
+  }
+
+  function drawPond(now) {
+    box(12, 464, 73, 76, '#73997c');
+    box(18, 469, 62, 65, '#73b3bd');
+    box(24, 475, 50, 53, '#85c5c7');
+    const offset = Math.floor(now / 500) % 2 ? 4 : 0;
+    box(27 + offset, 488, 19, 2, '#d0e9d9');
+    box(48 - offset, 511, 17, 2, '#d0e9d9');
   }
 
   function drawHouse() {
@@ -511,6 +720,12 @@ h2{font-size:16px;margin:0;color:#3a5540}
       box(x, 536, 5, 16, '#806c4a');
       if (x < 660) { box(x, 78, 45, 3, '#b89765'); box(x, 542, 45, 3, '#b89765'); }
     }
+    for (let y = 91; y < 535; y += 48) {
+      box(87, y, 5, 16, '#806c4a');
+      box(677, y, 5, 16, '#806c4a');
+      box(89, y + 5, 3, 43, '#b89765');
+      box(678, y + 5, 3, 43, '#b89765');
+    }
   }
 
   function drawPlot(plot, x, y) {
@@ -531,7 +746,10 @@ h2{font-size:16px;margin:0;color:#3a5540}
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
       box(px + 2, py + 3, 2, 41, '#e8f0e9');
     }
-    if (plot.crop) drawCrop(ctx, plot.crop, px, py, performance.now());
+    if (plot.crop) {
+      shadow(px + 24, py + 38, 13, 4);
+      drawCrop(ctx, plot.crop, px, py, performance.now());
+    }
   }
 
   function drawCrop(target, crop, px, py, now) {
@@ -622,7 +840,7 @@ h2{font-size:16px;margin:0;color:#3a5540}
     const walking = now < walkingUntil;
     const step = walking ? Math.floor(now / 95) % 2 : 0;
     const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -step * 2 : Math.floor(now / 900) % 2);
-    box(x + 5, y + 36, 28, 5, '#4d60405c');
+    shadow(x + 21, y + 39, 16, 5);
     box(x + 9, y + 31 + step, 8, 7, '#524c57');
     box(x + 24, y + 31 - step, 8, 7, '#524c57');
     box(x + 8, y + 20, 25, 13, '#557d8b');
@@ -656,16 +874,28 @@ h2{font-size:16px;margin:0;color:#3a5540}
   function drawScene(now) {
     drawBackground();
     drawHouse();
+    drawPond(now);
+    drawTree(37, 274);
+    drawTree(685, 111);
+    drawTree(694, 380);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
     const front = F.frontCell(state);
     if (front.x >= 0 && front.y >= 0 && front.x < F.WIDTH && front.y < F.HEIGHT) {
       const px = FIELD_X + front.x * TILE, py = FIELD_Y + front.y * TILE;
+      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 350);
       box(px + 3, py + 2, 42, 3, '#fff0aa');
       box(px + 3, py + 43, 42, 3, '#fff0aa');
       box(px + 2, py + 3, 3, 40, '#fff0aa');
       box(px + 43, py + 3, 3, 40, '#fff0aa');
+      ctx.globalAlpha = 1;
+    }
+    if (shake && now < shake.until) {
+      const px = FIELD_X + shake.x * TILE, py = FIELD_Y + shake.y * TILE;
+      ctx.strokeStyle = '#d06b50';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(px + (Math.floor(now / 25) % 2 ? 2 : -2) + 3, py + 3, 42, 42);
     }
     drawFarmer(now);
     for (const particle of particles) {
@@ -683,28 +913,37 @@ h2{font-size:16px;margin:0;color:#3a5540}
   function render() {
     document.getElementById('date').textContent = `${F.season(state)} · 第 ${F.seasonDay(state)} 天`;
     document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
+    document.getElementById('tomorrow').textContent = `明日：${state.tomorrow === 'rain' ? '雨' : '晴'}`;
     document.getElementById('gold').textContent = `${state.gold} G`;
     document.getElementById('energy-text').textContent = `${state.energy} / ${F.ENERGY_MAX}`;
     document.getElementById('energy-fill').style.width = `${state.energy / F.ENERGY_MAX * 100}%`;
     document.getElementById('tools').innerHTML = keys.map((key, i) =>
-      `<button type="button" class="tool ${state.tool === key ? 'active' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}</span><span>${F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
+      `<button type="button" class="tool ${state.tool === key ? 'active' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${state.upgrades[key] ? (key === 'hoe' ? '精钢锄' : '铁水壶') : F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
     ).join('');
     document.getElementById('crop-options').innerHTML = '<span>播种：</span>' + Object.entries(F.CROPS).map(([key, crop]) =>
       `<button type="button" class="crop-choice ${state.selectedCrop === key ? 'active' : ''}" data-crop="${key}" aria-pressed="${state.selectedCrop === key}">${crop.name} × ${state.seeds[key]}</button>`
     ).join('');
     document.getElementById('bag').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
       `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><strong>× ${state.bag[key]}</strong></div>`
-    ).join('');
+    ).join('') + `<div class="bag-row"><span>饭团</span><button type="button" data-eat="snack">吃掉 × ${state.snacks}</button></div>`;
     document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
       `<div class="shop-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}<small>${crop.days} 天 · 售 ${crop.sellPrice} G</small></span><button type="button" data-buy="${key}">买种子 ${crop.seedPrice} G</button></div>`
-    ).join('');
+    ).join('') + `<div class="shop-row"><span>精钢锄<small>锄地体力减半</small></span><button type="button" data-upgrade="hoe" ${state.upgrades.hoe ? 'disabled' : ''}>${state.upgrades.hoe ? '已购买' : '400 G'}</button></div><div class="shop-row"><span>铁水壶<small>面前三格浇水</small></span><button type="button" data-upgrade="water" ${state.upgrades.water ? 'disabled' : ''}>${state.upgrades.water ? '已购买' : '600 G'}</button></div><div class="shop-row"><span>饭团<small>恢复 15 体力</small></span><button type="button" data-snack="buy">20 G</button></div>`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
+    document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" data-deliver="${order.id}">交付</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
+    document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>完成订单：${state.stats.orders}</p><p>已玩天数：${state.stats.days}</p>`;
     drawScene(performance.now());
   }
 
   function frame(now) {
     const dt = Math.min(50, now - (lastFrame || now));
     lastFrame = now;
+    tickInput(now);
+    if (route.length && !input.direction && now >= routeNext) {
+      move(route.shift());
+      routeNext = now + 140;
+      if (!route.length) handle({ ok: true, message: '已走到目标地块旁', events: [] }, false);
+    }
     for (const particle of particles) {
       particle.age += dt;
       particle.x += particle.vx * dt;
@@ -745,22 +984,36 @@ h2{font-size:16px;margin:0;color:#3a5540}
       drawCrop(context, { type: preview.dataset.preview, progress: F.CROPS[preview.dataset.preview].days }, 0, 0, 0);
     }
     document.getElementById('codex-panel').hidden = false;
+    document.getElementById('orders-panel').hidden = true;
+    document.body.classList.add('modal-open');
   }
 
+  function closePanels() {
+    document.getElementById('codex-panel').hidden = true;
+    document.getElementById('orders-panel').hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+
+  const directionKeys = { w: 'up', ArrowUp: 'up', s: 'down', ArrowDown: 'down', a: 'left', ArrowLeft: 'left', d: 'right', ArrowRight: 'right' };
   document.addEventListener('keydown', event => {
-    if (!document.getElementById('codex-panel').hidden) {
-      if (event.key === 'Escape') document.getElementById('codex-panel').hidden = true;
+    if (!document.getElementById('codex-panel').hidden || !document.getElementById('orders-panel').hidden) {
+      if (event.key === 'Escape') closePanels();
       return;
     }
-    const direction = { w: 'up', ArrowUp: 'up', s: 'down', ArrowDown: 'down', a: 'left', ArrowLeft: 'left', d: 'right', ArrowRight: 'right' }[event.key];
-    if (direction) { event.preventDefault(); move(direction); return; }
+    const direction = directionKeys[event.key];
+    if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
     if (event.key >= '1' && event.key <= '4') { initAudio(); handle(F.selectTool(state, keys[Number(event.key) - 1]), true); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
       event.preventDefault();
-      action();
+      pressUse();
     }
   });
+  document.addEventListener('keyup', event => {
+    if (directionKeys[event.key]) releaseDirection(`key:${event.key}`);
+    if (event.key === ' ' || event.key === 'Enter') input.use = false;
+  });
+  window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; });
   document.getElementById('tools').addEventListener('click', event => {
     const button = event.target.closest('[data-tool]');
     if (button) { initAudio(); handle(F.selectTool(state, button.dataset.tool), true); }
@@ -772,6 +1025,12 @@ h2{font-size:16px;margin:0;color:#3a5540}
   document.getElementById('shop').addEventListener('click', event => {
     const button = event.target.closest('[data-buy]');
     if (button) { initAudio(); const outcome = F.buySeed(state, button.dataset.buy, 1); if (!outcome.ok) sound('error'); handle(outcome, true); }
+    const upgrade = event.target.closest('[data-upgrade]');
+    if (upgrade) { const outcome = F.buyUpgrade(state, upgrade.dataset.upgrade); if (!outcome.ok) sound('error'); handle(outcome, true); }
+    if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) sound('error'); handle(outcome, true); }
+  });
+  document.getElementById('bag').addEventListener('click', event => {
+    if (event.target.closest('[data-eat]')) { const outcome = F.eatSnack(state); if (!outcome.ok) sound('error'); handle(outcome, true); }
   });
   document.getElementById('sell-all').addEventListener('click', () => {
     initAudio();
@@ -786,9 +1045,32 @@ h2{font-size:16px;margin:0;color:#3a5540}
   });
   document.querySelector('.dpad').addEventListener('pointerdown', event => {
     const button = event.target.closest('[data-direction]');
-    if (button) { event.preventDefault(); move(button.dataset.direction); }
+    if (button) { event.preventDefault(); button.setPointerCapture?.(event.pointerId); pressDirection(button.dataset.direction, `pointer:${event.pointerId}`); }
   });
-  document.getElementById('touch-use').addEventListener('pointerdown', event => { event.preventDefault(); action(); });
+  document.querySelector('.dpad').addEventListener('pointerup', event => releaseDirection(`pointer:${event.pointerId}`));
+  document.querySelector('.dpad').addEventListener('pointercancel', event => releaseDirection(`pointer:${event.pointerId}`));
+  document.getElementById('touch-use').addEventListener('pointerdown', event => { event.preventDefault(); event.currentTarget.setPointerCapture?.(event.pointerId); pressUse(); });
+  document.getElementById('touch-use').addEventListener('pointerup', () => { input.use = false; });
+  document.getElementById('touch-use').addEventListener('pointercancel', () => { input.use = false; });
+  canvas.addEventListener('pointerdown', event => {
+    const rect = canvas.getBoundingClientRect();
+    const x = Math.floor(((event.clientX - rect.left) / rect.width * 768 - FIELD_X) / TILE);
+    const y = Math.floor(((event.clientY - rect.top) / rect.height * 576 - FIELD_Y) / TILE);
+    if (x < 0 || x >= F.WIDTH || y < 0 || y >= F.HEIGHT) return;
+    input.direction = null;
+    route = [];
+    const distance = Math.abs(x - state.farmer.x) + Math.abs(y - state.farmer.y);
+    if (distance === 1) {
+      state.farmer.facing = Object.entries(F.DIRECTIONS).find(([, [dx, dy]]) => state.farmer.x + dx === x && state.farmer.y + dy === y)[0];
+      action();
+      return;
+    }
+    if (distance === 0) return;
+    const path = F.findPath(state, x, y);
+    if (!path) { sound('error'); handle({ ok: false, message: '没有通往目标地块旁的路', events: [] }, false); return; }
+    route = path;
+    routeNext = performance.now();
+  });
   document.getElementById('farm').addEventListener('touchmove', event => event.preventDefault(), { passive: false });
   document.getElementById('mute').addEventListener('click', () => {
     initAudio();
@@ -802,15 +1084,27 @@ h2{font-size:16px;margin:0;color:#3a5540}
     button.setAttribute('aria-pressed', String(muted));
   }
   document.getElementById('codex').addEventListener('click', () => { initAudio(); openCodex(); });
-  document.getElementById('close-codex').addEventListener('click', () => { document.getElementById('codex-panel').hidden = true; });
-  document.getElementById('codex-panel').addEventListener('click', event => {
-    if (event.target.id === 'codex-panel') event.currentTarget.hidden = true;
+  document.getElementById('orders-button').addEventListener('click', () => { initAudio(); document.getElementById('orders-panel').hidden = false; document.getElementById('codex-panel').hidden = true; document.body.classList.add('modal-open'); });
+  document.getElementById('orders-list').addEventListener('click', event => {
+    const button = event.target.closest('[data-deliver]');
+    if (button) { const outcome = F.deliverOrder(state, Number(button.dataset.deliver)); if (!outcome.ok) sound('error'); else sound('sell'); handle(outcome, true); }
   });
+  document.getElementById('close-codex').addEventListener('click', closePanels);
+  document.getElementById('close-orders').addEventListener('click', closePanels);
+  document.getElementById('crop-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = false; document.getElementById('stats-list').hidden = true; });
+  document.getElementById('stats-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = true; document.getElementById('stats-list').hidden = false; });
+  document.getElementById('codex-panel').addEventListener('click', event => {
+    if (event.target.id === 'codex-panel') closePanels();
+  });
+  document.getElementById('orders-panel').addEventListener('click', event => { if (event.target.id === 'orders-panel') closePanels(); });
   document.getElementById('new-game').addEventListener('click', () => {
     if (!confirm('开始新游戏？当前农场进度会被覆盖。')) return;
     sleepStart = 0;
     sleepPending = false;
     particles = [];
+    route = [];
+    input.direction = null;
+    input.use = false;
     state = F.createGame();
     journal = ['新的农场生活开始了！'];
     handle({ ok: true, message: '新游戏已开始', events: [] }, true);

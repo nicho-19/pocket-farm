@@ -10,7 +10,7 @@ h1 span{color:#d79a67;font-size:27px;vertical-align:top}
 h2{font-size:16px;margin:0;color:#3a5540}
 .quiet-button{background:#f8f4e5;border:1px solid #c9ccb3;color:#65765e;border-radius:8px;padding:10px 15px;box-shadow:0 2px 0 #c7c6aa}
 .quiet-button:hover,.shop-list button:hover{background:#e8eed8}
-.status-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1.6fr;gap:0;background:var(--paper);border:2px solid #d9d5b7;border-bottom-width:4px;border-radius:13px;padding:12px 5px;margin-bottom:17px;box-shadow:0 7px 22px #65785d18}
+.status-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1.6fr;gap:0;background:var(--paper);border:2px solid #d9d5b7;border-bottom-width:4px;border-radius:13px;padding:12px 5px;margin-bottom:17px;box-shadow:0 7px 22px #65785d18}
 .status-item{padding:3px 22px;border-right:1px solid #e5e1ca;display:flex;flex-direction:column;gap:5px;min-height:42px}.status-item:last-child{border:0}
 .status-item span{color:var(--muted);font-size:11px;letter-spacing:.08em}.status-item strong{font-size:17px;color:#3c5d43}.energy-item span{display:flex;justify-content:space-between}.energy-item b{font-weight:normal;letter-spacing:0}
 .energy-track{height:13px;border:2px solid #8a9b75;background:#e4e8d5;border-radius:5px;overflow:hidden;margin-top:5px}.energy-track div{height:100%;width:100%;background:linear-gradient(90deg,#85b56c,#bdd67d);transition:width .2s}
@@ -29,4 +29,15 @@ h2{font-size:16px;margin:0;color:#3a5540}
 .log-card ul{padding:0;margin:0;list-style:none;max-height:150px;overflow:auto}.log-card li{font-size:12px;line-height:1.55;padding:6px 2px;border-top:1px dashed #e5e0c9;color:#667560}.log-card li:first-child{border-top:0}.log-card li:before{content:'✦';color:#ca9b63;margin-right:8px}footer{text-align:center;color:#8b987e;font-size:11px;padding:21px 0 2px}
 @media(max-width:1000px){.main-grid{grid-template-columns:minmax(0,1fr) 280px}.page{padding:18px}.tool{flex-direction:column;gap:1px}}
 @media(max-width:760px){.main-grid{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.sidebar .side-card{margin:0}.status-item{padding:3px 10px}.status-item strong{font-size:14px}.touch-controls{display:flex}}
-@media(max-width:520px){.page{padding:12px}.masthead{margin-bottom:13px}h1{font-size:30px}.header-actions .quiet-button{padding:8px;font-size:12px}.status-bar{grid-template-columns:repeat(2,1fr);row-gap:10px}.status-item:nth-child(2){border-right:0}.sidebar{display:block}.sidebar .side-card{margin-top:12px}.tool{font-size:11px}.panel-heading span{font-size:10px}}
+@media(max-width:520px){.page{padding:12px}.masthead{margin-bottom:13px}h1{font-size:30px}.header-actions .quiet-button{padding:8px;font-size:12px}.status-bar{grid-template-columns:repeat(2,1fr);row-gap:10px}.status-item:nth-child(2),.status-item:nth-child(4){border-right:0}.energy-item{grid-column:span 2}.sidebar{display:block}.sidebar .side-card{margin-top:12px}.tool{font-size:11px}.panel-heading span{font-size:10px}}
+.status-bar,.tool-panel,.side-card,.modal-card{background:linear-gradient(145deg,#fffaf0 0%,#f7efd9 100%);border-color:#a5784f;box-shadow:inset 0 0 0 2px #ecd3a6,0 5px 17px #593b2b20}
+.status-item strong,.energy-item b{font-weight:800}
+.tool.active{outline:2px solid #d8a95b;box-shadow:0 0 12px #e6ba65,inset 0 0 0 1px #fff}
+.log-card li:first-child{animation:log-fade .45s ease-out}@keyframes log-fade{from{opacity:0}to{opacity:1}}
+.dpad button,.touch-use{min-width:56px;min-height:56px;background:#e7efd9ce;transition:transform .08s;backdrop-filter:blur(2px)}
+.dpad{grid-template-columns:repeat(3,56px);grid-template-rows:repeat(2,56px)}
+.dpad button:active,.touch-use:active{transform:scale(.92)}
+.modal-open .touch-controls{visibility:hidden}
+.order-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px dashed #d6c099;padding:12px 0;font-size:13px;line-height:1.7}
+.order-row button,.bag-row button,.tabs button{border:1px solid #af885b;background:#f5e8c7;border-radius:6px;padding:8px 12px;color:#5c4c32}
+.tabs{display:flex;gap:8px;margin:12px 0}
