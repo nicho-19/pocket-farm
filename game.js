@@ -13,6 +13,18 @@
   const FIELD_Y = 0;
   const WORLD_WIDTH = F.WIDTH * TILE;
   const WORLD_HEIGHT = F.HEIGHT * TILE;
+  const SPRITES = {
+    house: 'pilot-assets/game/house.png',
+    'hut-blue': 'pilot-assets/game/hut-blue.png', 'hut-red': 'pilot-assets/game/hut-red.png', 'hut-green': 'pilot-assets/game/hut-green.png',
+    'tree-broadleaf': 'pilot-assets/game/tree-broadleaf.png', 'tree-pine': 'pilot-assets/game/tree-pine.png',
+    'node-stump': 'pilot-assets/game/node-stump.png', 'node-berry': 'pilot-assets/game/node-berry.png', 'node-rock': 'pilot-assets/game/node-rock.png',
+    'prop-scarecrow': 'pilot-assets/game/prop-scarecrow.png', 'prop-fence': 'pilot-assets/game/prop-fence.png',
+    'tex-grass': 'pilot-assets/game/tex-grass.png',
+    ...Object.fromEntries(['carrot', 'potato', 'strawberry', 'pumpkin', 'corn'].flatMap(type =>
+      [1, 2, 3, 4].map(stage => [`crop-${type}-${stage}`, `pilot-assets/game/crop-${type}-${stage}.png`]))
+    )
+  };
+  const spriteImages = {};
   const canvas = document.getElementById('farm');
   let ctx = canvas.getContext('2d');
   const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -20,6 +32,38 @@
   const staticCanvas = document.createElement('canvas');
   const staticContext = staticCanvas.getContext('2d');
   let staticKey = '';
+
+  function preloadSprites() {
+    if (typeof globalThis.Image !== 'function') return;
+    for (const [name, path] of Object.entries(SPRITES)) {
+      try {
+        const image = new globalThis.Image();
+        spriteImages[name] = { image, loaded: false };
+        image.onload = () => { spriteImages[name].loaded = true; staticKey = ''; };
+        image.onerror = () => { spriteImages[name].loaded = false; };
+        image.src = globalThis.__SPRITE_DATA__?.[name] || path;
+      } catch (_) { spriteImages[name] = { image: null, loaded: false }; }
+    }
+  }
+
+  function spriteReady(name) {
+    const sprite = spriteImages[name];
+    return Boolean(sprite?.loaded && sprite.image && (sprite.image.naturalWidth || sprite.image.width) && (sprite.image.naturalHeight || sprite.image.height));
+  }
+
+  function drawSprite(name, cx, bottomY, targetW, target = ctx) {
+    if (!spriteReady(name)) return false;
+    const image = spriteImages[name].image;
+    const sourceW = image.naturalWidth || image.width, sourceH = image.naturalHeight || image.height;
+    const targetH = targetW * sourceH / sourceW;
+    try {
+      target.imageSmoothingEnabled = false;
+      target.drawImage(image, Math.round(cx - targetW / 2), Math.round(bottomY - targetH), Math.round(targetW), Math.round(targetH));
+      return true;
+    } catch (_) { return false; }
+  }
+
+  preloadSprites();
 
   function resizeCanvas() {
     const bounds = canvas.getBoundingClientRect();
@@ -358,7 +402,14 @@
 
   function drawGrassTile(px, py, x, y, terrain, p) {
     const base = terrain === 'residential' ? p.light : p.grass;
-    box(px, py, TILE, TILE, base);
+    if (spriteReady('tex-grass')) {
+      const image = spriteImages['tex-grass'].image;
+      const sourceX = (x % 2) * image.width / 2, sourceY = (y % 2) * image.height / 2;
+      try { ctx.drawImage(image, sourceX, sourceY, image.width / 2, image.height / 2, px, py, TILE, TILE); }
+      catch (_) { box(px, py, TILE, TILE, base); }
+      const tintAlpha = { '春': 0, '夏': 0.10, '秋': 0.20, '冬': 0.28 }[F.season(state)];
+      if (tintAlpha) { ctx.globalAlpha = tintAlpha; box(px, py, TILE, TILE, base); ctx.globalAlpha = 1; }
+    } else box(px, py, TILE, TILE, base);
     const variant = Math.floor(hash(x, y, 18) * 3);
     const patches = [
       [[5, 7, 10, 4], [31, 30, 12, 5], [17, 39, 8, 3]],
@@ -547,6 +598,8 @@
 
   function drawTree(x, y, gridX, gridY) {
     const pine = hash(gridX, gridY, 165) < 0.35;
+    const scale = 0.92 + hash(gridX, gridY, 166) * 0.16;
+    if (drawSprite(pine ? 'tree-pine' : 'tree-broadleaf', x + 21, y + 59, TILE * 1.7 * scale)) return;
     const colors = treeColors();
     drawTreeTrunk(x, y, pine);
     if (pine) {
@@ -600,15 +653,31 @@
       const status = state.resourceNodes[node.id];
       const x = node.x * TILE, y = node.y * TILE;
       if (node.kind === 'tree') {
-        if (status.charges) {
+        if (status.charges && drawSprite('tree-broadleaf', x + TILE / 2, y + TILE, TILE * 1.3)) {
+          // 素材树以格底中心为锚点；采空时改用树桩素材。
+        } else if (!status.charges && drawSprite('node-stump', x + TILE / 2, y + TILE, TILE * 0.9)) {
+          // 已绘制采空形态。
+        } else if (status.charges) {
           box(x + 12, y + 37, 18, 5, WORLD_COLORS.stump); box(x + 18, y + 32, 18, 5, WORLD_COLORS.barkLight);
           box(x + 14, y + 36, 14, 2, WORLD_COLORS.woodLight); box(x + 28, y + 31, 7, 2, WORLD_COLORS.woodLight);
         } else { box(x + 14, y + 33, 21, 10, WORLD_COLORS.stump); box(x + 18, y + 32, 13, 3, WORLD_COLORS.stumpLight); box(x + 19, y + 34, 11, 2, WORLD_COLORS.woodGrain); box(x + 23, y + 36, 5, 2, WORLD_COLORS.barkDark); }
       } else if (node.kind === 'berry') {
+        if (spriteReady('node-berry')) {
+          ctx.save(); if (!status.charges) ctx.globalAlpha = 0.45;
+          const drawn = drawSprite('node-berry', x + TILE / 2, y + TILE, TILE * 1.05);
+          ctx.restore();
+          if (drawn) continue;
+        }
         pixelLine(x + 13, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3); pixelLine(x + 34, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3);
         if (status.charges) { box(x + 9, y + 20, 31, 21, WORLD_COLORS.leafDeep); box(x + 13, y + 16, 24, 22, WORLD_COLORS.leafGreen); box(x + 12, y + 16, 9, 8, WORLD_COLORS.leafLight); box(x + 28, y + 18, 9, 7, WORLD_COLORS.leafMid); }
         for (let i = 0; i < status.charges; i++) { box(x + 17 + i * 11, y + 22 + i * 5, 6, 6, WORLD_COLORS.berry); box(x + 18 + i * 11, y + 22 + i * 5, 3, 2, WORLD_COLORS.springFlowerLight); }
       } else if (node.kind === 'stone') {
+        if (spriteReady('node-rock')) {
+          ctx.save(); if (!status.charges) ctx.globalAlpha = 0.45;
+          const drawn = drawSprite('node-rock', x + TILE / 2, y + TILE, TILE * 1.05);
+          ctx.restore();
+          if (drawn) continue;
+        }
         if (status.charges) { box(x + 8, y + 25, 33, 16, WORLD_COLORS.stoneDark); box(x + 12, y + 20, 25, 16, WORLD_COLORS.stoneMid); box(x + 16, y + 18, 17, 8, WORLD_COLORS.stoneLight); box(x + 17, y + 19, 12, 3, WORLD_COLORS.whiteFlash); }
         else { box(x + 11, y + 37, 9, 4, WORLD_COLORS.stoneDark); box(x + 27, y + 34, 12, 6, WORLD_COLORS.stoneMid); box(x + 29, y + 34, 7, 2, WORLD_COLORS.stoneLight); }
       } else {
@@ -622,8 +691,9 @@
     }
   }
 
-  function drawHouseCell(cell, name, roof = WORLD_COLORS.roofHome, prop = 'flowers') {
+  function drawHouseCell(cell, name, roof = WORLD_COLORS.roofHome, prop = 'flowers', spriteName = null, spriteWidth = TILE * 3) {
     const x = cell.x * TILE, y = cell.y * TILE;
+    if (spriteName && drawSprite(spriteName, x + TILE / 2, y + TILE, spriteWidth)) return;
     const left = x - 5, top = y - 13;
     shadow(x + 27, y + 43, 29, 5);
     // 石基与灰泥立面均向上、左右的非交互住宅空地外扩，门前格保持完全可读。
@@ -681,10 +751,10 @@
   }
 
   function drawHouses() {
-    drawHouseCell(F.LAYOUT.home, '家');
+    drawHouseCell(F.LAYOUT.home, '家', WORLD_COLORS.roofHome, 'flowers', 'house', TILE * 4.2);
     const roofs = [WORLD_COLORS.roofBlue, WORLD_COLORS.roofRed, WORLD_COLORS.roofMoss];
     const props = ['jar', 'wood', 'pot'];
-    F.LAYOUT.huts.forEach((hut, i) => drawHouseCell(hut, ['村长', '婆婆', '猎手'][i], roofs[i], props[i]));
+    F.LAYOUT.huts.forEach((hut, i) => drawHouseCell(hut, ['村长', '婆婆', '猎手'][i], roofs[i], props[i], ['hut-blue', 'hut-red', 'hut-green'][i], TILE * 3));
     const x = F.LAYOUT.square.x * TILE, y = F.LAYOUT.square.y * TILE;
     box(x - TILE, y - TILE, TILE * 3, TILE * 3, WORLD_COLORS.plaza);
     for (let py = -1; py < 2; py++) for (let px = -1; px < 2; px++) { box(x + px * 32 + 1, y + py * 25 + 2, 29, 22, (px + py) % 2 ? WORLD_COLORS.plazaLight : WORLD_COLORS.plaza); pixelLine(x + px * 32, y + py * 25, x + px * 32 + 30, y + py * 25, WORLD_COLORS.plazaEdge, 0.5); }
@@ -709,13 +779,17 @@
     const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
     if (plot.structure) {
       if (plot.structure === 'fence') {
+        if (drawSprite('prop-fence', px + TILE / 2, py + TILE, TILE)) return;
         shadow(px + 25, py + 38, 20, 4);
         box(px + 5, py + 17, 38, 7, WORLD_COLORS.woodDark); box(px + 6, py + 14, 36, 6, WORLD_COLORS.wood);
         box(px + 6, py + 28, 36, 6, WORLD_COLORS.woodDark); box(px + 7, py + 26, 34, 5, WORLD_COLORS.wood);
         for (const post of [9, 32]) { box(px + post, py + 7, 7, 34, WORLD_COLORS.woodDark); box(px + post + 1, py + 5, 5, 34, WORLD_COLORS.wood); box(px + post + 2, py + 5, 3, 2, WORLD_COLORS.woodLight); }
         box(px + 20, py + 16, 7, 2, WORLD_COLORS.woodLight); box(px + 28, py + 28, 6, 2, WORLD_COLORS.woodGrain);
       }
-      else { box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373'); }
+      else {
+        if (drawSprite('prop-scarecrow', px + TILE / 2, py + TILE, TILE * 0.95)) return;
+        box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373');
+      }
       return;
     }
     box(px + 3, py + 4, 42, 41, plot.crop ? WORLD_COLORS.soilPlanted : WORLD_COLORS.soil);
@@ -760,6 +834,8 @@
     px += stableOffset + Math.round(Math.sin(now / 600 + hash(gridX, gridY, 180) * 7) * (mature ? 1 : 0.5));
     py += offset;
     const center = px + 24;
+    const stage = progress === 0 ? 1 : progress === 1 ? 2 : mature ? 4 : 3;
+    if (drawSprite(`crop-${crop.type}-${stage}`, center, py + 44, TILE * (mature ? 1.05 : 0.9), target)) return;
     const paint = (x, y, w, h, color) => { target.fillStyle = color; target.fillRect(Math.round(x), Math.round(y), w, h); };
     const line = (x1, y1, x2, y2, color) => {
       const dx = x2 - x1, dy = y2 - y1, steps = Math.max(Math.abs(dx), Math.abs(dy));
