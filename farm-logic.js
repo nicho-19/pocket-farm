@@ -50,6 +50,7 @@
       nextOrderId: 1,
       stats: { income: 0, harvested: 0, orders: 0, days: 0 },
       manualTool: false,
+      tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
   }
@@ -77,6 +78,7 @@
     saved.nextOrderId = Number.isInteger(saved.nextOrderId) ? saved.nextOrderId : 1;
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
+    saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 3 ? saved.tutorial : 3;
     saved.version = 3;
     return saved;
   }

@@ -38,3 +38,25 @@ WebAudio 在首次键盘或指针交互时才创建 `AudioContext`，振荡器�
 `addParticle` 在入队前检查长度；达到 300 个时丢弃最旧粒子。雨天约每 35ms 入队 2 条雨丝，冬季同频入队 2 片雪花；雪花落地消失，雨丝落地产生短寿命溅点。烟雾、闪光也走同一队列。过夜星星为临时绘制的 20 个点，不额外占用粒子队列。页面隐藏后当前 rAF 回调结束即不再排下一帧，恢复可见时重新排帧，无额外计时器。
 
 实际运行 `node tests/run_tests.mjs`，26 项全部通过；对根目录及 `tests/` 内全部 JS/MJS 执行 `node --check`，全部通过；`node build-standalone.mjs` 成功重建；`node tests/standalone-smoke.mjs` 通过。冒烟脚本新增 Canvas `stroke/save/restore/translate/rotate` 空实现，并连续执行 60 帧来检查动画帧没有抛错。模拟帧计时由 Node `performance.now()` 测量 60 次 rAF 回调的总耗时，再除以 60；最终自验为总计 **437.1 ms、平均 7.28 ms/帧**，低于 60 FPS 的 16.67 ms 帧预算。它能反映这台机器上 JS 绘制逻辑的开销，不能代表浏览器实际合成或手机帧率。真实浏览器视觉和触控尚未检查。
+
+## 第五遍：设计取舍与实现
+
+开工前完整阅读了 `~/.codex/skills/ui-ux-pro-max/SKILL.md`、`game-ui-ux/SKILL.md`、`frontend-design/SKILL.md`，并实际运行：
+
+```text
+python3 ~/.codex/skills/ui-ux-pro-max/scripts/search.py "cozy farming game pixel warm" --design-system
+```
+
+检索返回 **Pixel Art**，以及文字对比度 4.5:1、键盘与可见焦点、减少动态效果、避免风格不一致等适用条目。采用其风格与无障碍原则；没有采用 #0F172A 暗底、红蓝霓虹色板，因为与暖色田园冲突；没有采用 Press Start 2P / VT323 的 Google Fonts 外链，因为缺中文字形且违反零外部资源。Hero-Centric 营销页结构也不适合现有游戏屏。按 `game-ui-ux` 采用容器自动排版、窄屏换行、安全区和由操作结果驱动 HUD；按 `frontend-design` 保持木牌、农具、季节色这些与题材直接相关的视觉元素，并让反馈文字指向下一步操作。
+
+CSS 根变量区集中定义了色板及用途、4/8/12/16/24 间距、8/12/999 圆角、两档阴影、字体栈与四档字号。以 `rg -o '#[0-9a-fA-F]{3,8}' style.css | wc -l` 统计，旧版 CSS 共 **107** 处十六进制颜色；第五遍用根变量区首个 `}` 作为边界，定义区 **23** 处、定义区外 **0** 处，故没有需逐项解释的保留硬编码颜色。Canvas 场景绘画色仍保留在 `game.js`，不属于 CSS UI 色；选中地块与错误描边使用与 CSS `--wheat`、`--danger` 同值的 `UI_COLORS`。
+
+存档仍用 `pocket-farm-save-v1` 键和 v3 版本。新存档增加 `tutorial: 0`，完成三步后变为 3；迁移旧存档若无此字段则设为 3，不再展示引导。操作成功时按实际使用的锄头、种子、水壶推进引导，不影响农事规则。Toast 与横幅由现有 rAF 时间推进；toast 入队后最多同时显示两条，避免另开持续轮询。横幅在过夜淡出结束后展示，CSS 在减少动态效果下使用淡入淡出。秋季横幅色调深至 `#86571a`，与奶油字的计算对比度约 **5.85:1**。
+
+## 第五遍自验实录（2026-10-05）
+
+- `node tests/run_tests.mjs`：**26/26 通过**。
+- 对根目录 `*.js`、`*.mjs` 与 `tests/*.mjs` 逐个执行 `node --check`：**全部通过，退出码 0**。
+- `node build-standalone.mjs`：**成功**，输出“已生成 pocket-farm-standalone.html”。
+- `node tests/standalone-smoke.mjs`：**通过**。新增断言放在该脚本：toast 容器及金币不足入队、首日换季横幅可触发、低体力后 HUD 含 `low-energy` 且出现提醒，并检查新旧存档引导默认值；原键盘与虚拟键转向优先检查仍通过。最终复跑模拟 Canvas 连续 60 帧总耗时 **431.7 ms**、平均 **7.19 ms/帧**。这是 Node 模拟环境的单次测量，不等于浏览器帧率。
+- `git diff --check`：**通过**。未进行真实浏览器或手机上的视觉、触控和帧率测试。
