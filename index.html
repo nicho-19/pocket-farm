@@ -14,7 +14,7 @@
     </header>
     <section class="status-bar" aria-label="农场状态">
       <div class="status-group status-day"><span id="season-dot" class="season-dot" aria-hidden="true"></span><strong id="date"></strong><span id="weather"></span><span id="tomorrow"></span><span id="raid-forecast" aria-live="polite"></span></div>
-      <div class="status-group status-resources"><div class="gold-item"><span class="coin-icon" aria-hidden="true"></span><span>金币</span><strong id="gold"></strong></div><div id="energy-item" class="energy-item"><span>体力 <b id="energy-text"></b></span><div class="energy-track" aria-hidden="true"><div id="energy-fill"></div></div></div></div>
+      <div class="status-group status-resources"><div class="gold-item"><span class="coin-icon" aria-hidden="true"></span><span>金币</span><strong id="gold"></strong></div><span id="weapon-hud" class="weapon-hud"></span><div id="health-item" class="health-item"><span aria-hidden="true">♥</span><span>生命 <b id="health-text"></b></span><div class="health-track" aria-hidden="true"><div id="health-fill"></div></div><button id="quick-eat" type="button" aria-label="快捷吃背包中回血最多的食物">吃</button></div></div>
     </section>
     <main class="main-grid">
       <section class="play-area" aria-label="农场">
@@ -31,9 +31,9 @@
         <section class="side-card intro-card">
           <div class="panel-heading"><h2>今天的农事</h2></div>
           <h2>把小日子种出来。</h2>
-          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；夜里要防乌鸦与野猪。</p>
+          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；吃收成回血，夜里防乌鸦和强盗。</p>
           <div class="key-help"><kbd>W A S D</kbd><span>移动 / 转向</span><kbd>空格</kbd><span>对前方操作</span></div>
-          <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button>
+          <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button><button id="watch" class="quiet-button watch-button" type="button">⚔ 守夜</button>
         </section>
         <section class="side-card">
           <div class="panel-heading"><h2>背包</h2><span>收获后存放在这里</span></div>
@@ -52,10 +52,12 @@
     </main>
     <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
   </div>
-  <div id="home-confirm" class="confirm-bar" hidden>已到家门口 <button id="home-sleep" type="button">睡觉</button><button id="home-cancel" type="button">再逛逛</button></div><div id="sell-confirm" class="confirm-bar" hidden><span id="sell-confirm-text"></span><button id="sell-confirm-yes" type="button">确认卖出</button><button id="sell-confirm-no" type="button">取消</button></div><div id="season-banner" class="season-banner" role="status" aria-live="polite" hidden></div>
+  <div id="home-confirm" class="confirm-bar" hidden>已到家门口 <button id="home-sleep" type="button">睡觉</button><button id="home-watch" type="button">守夜</button><button id="home-cancel" type="button">再逛逛</button></div><div id="sell-confirm" class="confirm-bar" hidden><span id="sell-confirm-text"></span><button id="sell-confirm-yes" type="button">确认卖出</button><button id="sell-confirm-no" type="button">取消</button></div><div id="season-banner" class="season-banner" role="status" aria-live="polite" hidden></div>
   <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
   <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="modal-heading"><h2>今日订单</h2><button id="close-orders" class="close-button" type="button" aria-label="关闭订单板">×</button></div><div id="orders-list"></div></div></div>
+  <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><p id="villager-line"></p><div id="villager-content"></div><h3>送一份作物</h3><div id="villager-gifts"></div></div></div>
+  <div id="game-over" class="modal" hidden><div class="modal-card game-over-card" role="dialog" aria-modal="true" aria-label="游戏结束"><h2>农夫倒下了</h2><p id="game-over-stats"></p><button id="restart" class="primary-button" type="button">重新开始</button></div></div>
   <script src="farm-logic.js"></script>
   <script src="game.js"></script>
 </body>

@@ -14,7 +14,7 @@ function plant(state, x = 5, y = 5, type = 'carrot', progress = 0) {
 }
 check('无 DOM 加载与初始状态', () => {
   const state = F.createGame();
-  assert.equal(state.gold, 100); assert.equal(state.energy, 40); assert.equal(state.version, 4);
+  assert.equal(state.gold, 100); assert.equal(state.health, 100); assert.equal(state.version, 5);
   assert.deepEqual(Object.keys(F.TOOLS).sort(), ['build', 'hoe', 'scythe', 'seed']);
 });
 check('锄地播种及按天生长', () => {
@@ -32,19 +32,25 @@ check('成熟后镰刀收获并可再次播种', () => {
 check('旧档迁移保住作物进度并忽略湿润字段', () => {
   const s = F.createGame(); s.version = 1; s.tool = 'water'; plant(s, 5, 5, 'potato', 2); s.plots[5][5].watered = false;
   F.migrateSave(s); assert.equal(s.plots[5][5].crop.progress, 2); assert.equal('watered' in s.plots[5][5], false);
-  assert.equal(s.tool, 'hoe'); assert.equal(s.version, 4); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 3);
+  assert.equal(s.tool, 'hoe'); assert.equal(s.version, 5); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 3);
 });
 check('v2 存档补全默认值并保留金币土地', () => {
   const s = F.createGame(); s.version = 2; s.gold = 37; s.plots[2][3].tilled = true;
   for (const key of ['tomorrow', 'snacks', 'upgrades', 'orders', 'nextOrderId', 'stats', 'manualTool']) delete s[key];
-  F.migrateSave(s); assert.equal(s.version, 4); assert.equal(s.gold, 37);
+  F.migrateSave(s); assert.equal(s.version, 5); assert.equal(s.gold, 37);
   assert.equal(s.plots[2][3].tilled, true); assert.equal(s.stats.income, 0);
   assert.equal(s.nightRaid.level, 'calm');
 });
+check('v4 夜袭旧档转强盗并补生命武器村民默认值', () => {
+  const s = F.createGame(); s.version = 4; delete s.health; delete s.weapon; delete s.villagers;
+  s.nightRaid = { level: 'raid', count: 1, attackers: ['boar'] };
+  assert.ok(F.migrateSave(s)); assert.equal(s.health, 100); assert.equal(s.weapon, 'none');
+  assert.equal(s.nightRaid.attackers[0], 'bandit'); assert.equal(s.villagers.hunter.hearts, 0);
+});
 check('旧铁水壶全额返还且不重复返还', () => {
-  const s = F.createGame(); s.version = 3; s.gold = 12; s.upgrades.water = true;
+  const s = F.createGame(); s.version = 3; s.gold = 12; s.upgrades = { water: true };
   F.migrateSave(s); assert.equal(s.gold, 612); assert.match(s.migrationEvents[0], /返还 600G/);
-  F.migrateSave(s); assert.equal(s.gold, 612); assert.equal('water' in s.upgrades, false);
+  F.migrateSave(s); assert.equal(s.gold, 612); assert.equal('upgrades' in s, false);
 });
 check('五种作物均可成熟出售', () => {
   for (const [key, crop] of Object.entries(F.CROPS)) {
@@ -70,10 +76,10 @@ check('稻草人护住三乘三成熟作物', () => {
   const result = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['crow'] });
   assert.equal(result.lost, 0); assert.ok(s.plots[5][5].crop); assert.match(result.events.join(' '), /乌鸦/);
 });
-check('野猪被完整栅栏墙挡下并啃掉一段', () => {
+check('强盗被完整栅栏墙挡下并啃掉一段', () => {
   const s = F.createGame(); plant(s, 2, 4);
   for (let y = 0; y < F.HEIGHT; y++) s.plots[y][1].structure = 'fence';
-  const r = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['boar'] });
+  const r = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] });
   assert.equal(r.lost, 0); assert.equal(r.fences, 1); assert.ok(s.plots[4][2].crop);
 });
 check('单晚损失最多三格作物', () => {
@@ -81,9 +87,38 @@ check('单晚损失最多三格作物', () => {
   const r = F.resolveRaid(s, { level: 'large', count: 6, attackers: Array(6).fill('crow') });
   assert.equal(r.lost, 3); assert.equal(s.plots[4].filter(p => p.crop).length, 4);
 });
-check('野猪拱作物后回草地', () => {
-  const s = F.createGame(); plant(s, 2, 4); F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['boar'] });
-  assert.equal(s.plots[4][2].tilled, false); assert.equal(s.plots[4][2].crop, null);
+check('强盗优先抢包再抢钱再毁作物', () => {
+  const s = F.createGame(); s.bag.carrot = 1; plant(s, 2, 4);
+  F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0.99);
+  assert.equal(s.bag.carrot, 0); assert.equal(s.gold, 100);
+  F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0.99);
+  assert.ok(s.gold < 100); s.gold = 0;
+  F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0.99);
+  assert.equal(s.plots[4][2].crop, null); assert.equal(s.plots[4][2].tilled, false);
+});
+check('强盗金币和背包单晚封顶', () => {
+  const s = F.createGame(); s.gold = 10000; s.bag.carrot = 50;
+  const raid = { level: 'large', count: 6, attackers: Array(6).fill('bandit') };
+  const r = F.resolveRaid(s, raid, () => 0.99);
+  assert.ok(r.items <= 5); assert.ok(r.gold <= 200);
+});
+check('强盗可抢饭团并记入背包损失', () => {
+  const s = F.createGame(); s.snacks = 2;
+  const r = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0.99);
+  assert.equal(s.snacks, 0); assert.equal(r.items, 2); assert.match(r.events.join(' '), /饭团/);
+});
+check('自动反击按武器概率，成功无抢掠和受伤', () => {
+  const s = F.createGame(); s.weapon = 'sword'; s.bag.carrot = 2;
+  const r = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0);
+  assert.equal(r.repelled, 1); assert.equal(s.bag.carrot, 2); assert.equal(s.health, 100);
+});
+check('强盗得手后受伤8至15点且概率可注入', () => {
+  const s = F.createGame(); s.bag.carrot = 1;
+  F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0);
+  assert.equal(s.health, 92);
+  const t = F.createGame(); t.bag.carrot = 1;
+  F.resolveRaid(t, { level: 'raid', count: 1, attackers: ['bandit'] }, () => 0.99);
+  assert.equal(t.health, 100);
 });
 check('放置和镰刀回收防御道具', () => {
   const s = F.createGame(); s.gold = 200; assert.equal(F.placeBuilding(s, 'scarecrow').ok, true);
@@ -115,17 +150,94 @@ check('手动卖出低于订单需求会标记提醒', () => {
 });
 check('订单交付与过期刷新', () => {
   const s = F.createGame(); F.generateOrders(s, () => 0); const order = s.orders[0]; s.bag[order.crop] = 1;
+  assert.equal(F.deliverOrder(s, order.id).ok, false); assert.equal(F.acceptOrder(s, order.id).ok, true);
   assert.equal(F.deliverOrder(s, order.id).ok, true); F.generateOrders(s, () => 0); s.orders[0].deadline = s.day;
   assert.match(F.sleep(s, () => 0.99).events.join(' '), /过期/);
 });
-check('精钢锄和饭团仍可用', () => {
-  const s = F.createGame(); s.gold = 500; assert.equal(F.buyUpgrade(s, 'hoe').ok, true); assert.equal(F.act(s).ok, true);
-  assert.equal(s.energy, 38); assert.equal(F.buySnack(s).ok, true); s.energy = 10; assert.equal(F.eatSnack(s).ok, true);
+check('农事不耗生命，旧体力字段可缺席且精钢锄退款', () => {
+  const s = F.createGame(); s.version = 4; s.energy = 1; s.upgrades = { hoe: true };
+  delete s.health; assert.ok(F.migrateSave(s)); assert.equal(s.health, 100);
+  assert.equal('energy' in s, false); assert.equal(s.gold, 500);
+  assert.equal(F.act(s).ok, true); assert.equal(s.health, 100);
+  F.selectTool(s, 'seed'); assert.equal(F.act(s).ok, true); assert.equal(s.health, 100);
 });
-check('体力不足拒绝动作，睡觉恢复至 40', () => {
-  const s = F.createGame(); s.energy = 3; const before = JSON.stringify(s.plots[5][5]);
-  assert.equal(F.act(s).ok, false); assert.equal(JSON.stringify(s.plots[5][5]), before);
-  F.sleep(s, () => 0.99); assert.equal(s.energy, 40);
+check('作物与饭团按表回血，满血拦截且不耗食物', () => {
+  const s = F.createGame(); s.bag.carrot = 1; s.bag.pumpkin = 1; s.snacks = 1;
+  assert.equal(F.eatFood(s, 'carrot').ok, false); assert.equal(s.bag.carrot, 1);
+  s.health = 95; assert.match(F.eatFood(s, 'pumpkin').message, /5 点生命/); assert.equal(s.health, 100);
+  s.health = 40; assert.equal(F.eatFood(s, 'carrot').ok, true); assert.equal(s.health, 46);
+  assert.equal(F.eatFood(s, 'snack').ok, true); assert.equal(s.health, 66);
+});
+check('快捷吃最高回血食物，空背包提示', () => {
+  const s = F.createGame(); s.health = 20; s.bag.potato = 1; s.bag.pumpkin = 1;
+  assert.match(F.quickEat(s).message, /南瓜/); assert.equal(s.health, 34);
+  assert.match(F.quickEat(s).message, /土豆/); assert.match(F.quickEat(s).message, /没有食物/);
+});
+check('武器价格、伤害与高档替换', () => {
+  const s = F.createGame(); assert.equal(s.weapon, 'none');
+  assert.equal(F.buyWeapon(s, 'club').ok, true); assert.equal(s.gold, 0);
+  assert.equal(F.buyWeapon(s, 'axe').ok, false); s.gold = 1100;
+  assert.equal(F.buyWeapon(s, 'axe').ok, true); assert.equal(F.buyWeapon(s, 'club').ok, false);
+  assert.equal(F.buyWeapon(s, 'sword').ok, true); assert.equal(s.gold, 0);
+  assert.equal(F.WEAPONS[s.weapon].damage, 3);
+});
+check('守夜挥砍按武器伤害并打退强盗', () => {
+  for (const [weapon, damage] of [['club', 1], ['axe', 2], ['sword', 3]]) {
+    const s = F.createGame(); s.weapon = weapon; s.nightRaid = { level: 'raid', count: 1, attackers: ['bandit'] };
+    const b = F.startWatch(s); b.spawned = 1; b.enemies.push({ x: 5, y: 5, health: 3 });
+    F.watchStrike(s, b, 1); assert.equal(b.enemies[0].health, 3 - damage);
+    if (damage === 3) { assert.equal(b.enemies[0].retreating, true); assert.equal(s.stats.repelled, 1); }
+  }
+});
+check('徒手可推开强盗，强盗每秒攻击扣4点', () => {
+  const s = F.createGame(); s.nightRaid = { level: 'raid', count: 1, attackers: ['bandit'] };
+  const b = F.startWatch(s); b.spawned = 1; b.enemies.push({ x: 5, y: 5, health: 3 });
+  F.watchStrike(s, b, 1); assert.equal(b.enemies[0].y, 6);
+  b.enemies[0].y = 5; F.watchTick(s, b, 1000); assert.equal(s.health, 96);
+  F.watchTick(s, b, 1200); assert.equal(s.health, 96);
+});
+check('守夜成功零损失且作物照常生长', () => {
+  const s = F.createGame(); plant(s); s.nightRaid = { level: 'raid', count: 1, attackers: ['bandit'] };
+  const b = F.startWatch(s); b.spawned = 1; b.enemies.push({ x: 5, y: 5, health: 3 }); s.weapon = 'sword';
+  F.watchStrike(s, b, 1);
+  for (let now = 1; now < 1000 && !b.success; now += 120) F.watchTick(s, b, now);
+  assert.equal(b.success, true);
+  const result = F.sleep(s, () => 0.99, true); assert.equal(result.raid.lost, 0);
+  assert.equal(s.plots[5][5].crop.progress, 1);
+});
+check('睡觉恢复10生命，守夜不恢复', () => {
+  const s = F.createGame(); s.health = 70; F.sleep(s, () => 0.99); assert.equal(s.health, 80);
+  s.health = 70; F.sleep(s, () => 0.99, true); assert.equal(s.health, 70);
+});
+check('夜袭致死锁定终局，迁移旧档不会复活', () => {
+  const s = F.createGame(); s.health = 1; s.gold = 0;
+  s.nightRaid = { level: 'raid', count: 1, attackers: ['bandit'] }; s.bag.carrot = 1;
+  F.sleep(s, () => 0); assert.equal(s.gameOver, true); assert.equal(s.health, 0);
+  assert.equal(F.sleep(s, () => 0.99).ok, false);
+  assert.equal(F.migrateSave(s).gameOver, true);
+});
+check('村民送礼每日一次、满心回礼一次', () => {
+  for (const [id, expected] of [['mayor', 'gold'], ['merchant', 'snacks'], ['hunter', 'fenceStock']]) {
+    const s = F.createGame(); s.bag.carrot = 6; const before = s[expected];
+    for (let day = 1; day <= 5; day++) {
+      s.day = day; assert.equal(F.giftVillager(s, id, 'carrot').ok, true);
+      assert.equal(F.giftVillager(s, id, 'carrot').ok, false);
+    }
+    assert.equal(s.villagers[id].hearts, 5);
+    assert.equal(s[expected] - before, id === 'mayor' ? 100 : 2);
+    s.day++; F.giftVillager(s, id, 'carrot'); assert.equal(s[expected] - before, id === 'mayor' ? 100 : 2);
+  }
+});
+check('猎手回礼的栅栏优先使用库存', () => {
+  const s = F.createGame(); s.gold = 0; s.fenceStock = 2;
+  assert.equal(F.placeBuilding(s, 'fence').ok, true); assert.equal(s.fenceStock, 1); assert.equal(s.gold, 0);
+});
+check('村民对话有夜袭、天气和四句轮换文案', () => {
+  const s = F.createGame(); s.nightRaid = { level: 'large', count: 2, attackers: ['bandit', 'crow'] };
+  for (const id of Object.keys(F.VILLAGERS)) {
+    const lines = Array.from({ length: 6 }, (_, i) => F.villagerLine(s, id, i));
+    assert.equal(new Set(lines).size, 6); assert.match(lines[0], /大入侵/); assert.match(lines[1], /春季/);
+  }
 });
 check('金币不足拒绝购买，数量不变', () => {
   const s = F.createGame(); s.gold = 0; assert.equal(F.buySeed(s, 'pumpkin', 1).ok, false); assert.equal(s.seeds.pumpkin, 0);
