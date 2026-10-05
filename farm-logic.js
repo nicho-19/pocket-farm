@@ -7,9 +7,11 @@
   const RAIN_CHANCE = 0.25;
   const SEASONS = ['春', '夏', '秋', '冬'];
   const CROPS = {
-    carrot: { name: '萝卜', days: 3, seedPrice: 10, sellPrice: 28 },
+    carrot: { name: '萝卜', days: 3, seedPrice: 10, sellPrice: 25 },
     potato: { name: '土豆', days: 4, seedPrice: 18, sellPrice: 48 },
-    pumpkin: { name: '南瓜', days: 5, seedPrice: 30, sellPrice: 85 }
+    pumpkin: { name: '南瓜', days: 5, seedPrice: 30, sellPrice: 85 },
+    strawberry: { name: '草莓', days: 4, seedPrice: 30, sellPrice: 81 },
+    corn: { name: '玉米', days: 3, seedPrice: 15, sellPrice: 38 }
   };
   const TOOLS = {
     hoe: { name: '锄头', cost: 4 },
@@ -25,9 +27,13 @@
     return { tilled: false, watered: false, crop: null };
   }
 
+  function cropCounts() {
+    return Object.fromEntries(Object.keys(CROPS).map(key => [key, 0]));
+  }
+
   function createGame() {
     return {
-      version: 1,
+      version: 2,
       day: 1,
       weather: 'sunny',
       gold: 100,
@@ -35,10 +41,30 @@
       farmer: { x: 5, y: 4, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
-      seeds: { carrot: 3, potato: 0, pumpkin: 0 },
-      bag: { carrot: 0, potato: 0, pumpkin: 0 },
+      seeds: { ...cropCounts(), carrot: 3 },
+      bag: cropCounts(),
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
+  }
+
+  function migrateSave(saved) {
+    if (!saved || ![1, 2].includes(saved.version) ||
+        !Array.isArray(saved.plots) || saved.plots.length !== HEIGHT ||
+        !saved.plots.every(row => Array.isArray(row) && row.length === WIDTH) ||
+        !saved.farmer || !inBounds(saved.farmer.x, saved.farmer.y) ||
+        !DIRECTIONS[saved.farmer.facing] || !TOOLS[saved.tool] ||
+        !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
+        !Number.isFinite(saved.gold) || !Number.isFinite(saved.energy)) return null;
+    saved.seeds = { ...cropCounts(), ...saved.seeds };
+    saved.bag = { ...cropCounts(), ...saved.bag };
+    for (const row of saved.plots) {
+      for (const plot of row) {
+        if (!plot || typeof plot !== 'object' ||
+            (plot.crop && !CROPS[plot.crop.type])) return null;
+      }
+    }
+    saved.version = 2;
+    return saved;
   }
 
   function season(state) {
@@ -178,7 +204,7 @@
 
   root.PocketFarm = {
     WIDTH, HEIGHT, ENERGY_MAX, RAIN_CHANCE, CROPS, TOOLS,
-    createGame, season, seasonDay, frontCell, move, selectTool, selectCrop,
+    createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
     act, buySeed, sellAll, sleep
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

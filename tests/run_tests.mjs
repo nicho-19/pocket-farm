@@ -133,4 +133,52 @@ check('每 28 天换季并重置季节内日期', () => {
   assert.equal(F.seasonDay(calendar), 1);
 });
 
+check('五种作物的播种、生长、收获与出售均按表驱动', () => {
+  assert.equal(Object.keys(F.CROPS).length, 5);
+  for (const [key, crop] of Object.entries(F.CROPS)) {
+    const farm = F.createGame();
+    farm.seeds[key] = 1;
+    F.act(farm);
+    F.selectCrop(farm, key);
+    F.selectTool(farm, 'seed');
+    assert.equal(F.act(farm).ok, true);
+    for (let day = 0; day < crop.days; day++) {
+      F.selectTool(farm, 'water');
+      F.act(farm);
+      F.sleep(farm, () => 0.99);
+    }
+    F.selectTool(farm, 'scythe');
+    assert.equal(F.act(farm).ok, true);
+    assert.equal(farm.bag[key], 1);
+    const gold = farm.gold;
+    F.sellAll(farm);
+    assert.equal(farm.gold, gold + crop.sellPrice);
+  }
+});
+
+check('v1 存档迁移补齐新作物数量并升到 v2', () => {
+  const old = F.createGame();
+  old.version = 1;
+  delete old.seeds.strawberry;
+  delete old.seeds.corn;
+  delete old.bag.strawberry;
+  delete old.bag.corn;
+  old.plots[5][5].tilled = true;
+  old.plots[5][5].crop = { type: 'carrot', progress: 2 };
+  const upgraded = F.migrateSave(old);
+  assert.equal(upgraded.version, 2);
+  assert.equal(upgraded.seeds.strawberry, 0);
+  assert.equal(upgraded.bag.corn, 0);
+  assert.equal(upgraded.plots[5][5].crop.progress, 2);
+});
+
+check('作物投入回收比随生长天数递增', () => {
+  const crops = Object.values(F.CROPS);
+  for (const longer of crops) for (const shorter of crops) {
+    if (longer.days > shorter.days) {
+      assert.ok(longer.sellPrice / longer.seedPrice > shorter.sellPrice / shorter.seedPrice);
+    }
+  }
+});
+
 console.log(`全部通过：${passed} 项测试。`);

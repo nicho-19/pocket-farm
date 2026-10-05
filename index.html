@@ -10,7 +10,7 @@
   <div class="page">
     <header class="masthead">
       <div><span class="eyebrow">一方小田 · 四季慢生活</span><h1>口袋田园 <span>✿</span></h1></div>
-      <button id="new-game" class="quiet-button" type="button">新游戏</button>
+      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
     </header>
     <section class="status-bar" aria-label="农场状态">
       <div class="status-item"><span>日期</span><strong id="date"></strong></div>
@@ -21,6 +21,7 @@
     <main class="main-grid">
       <section class="play-area" aria-label="农场">
         <div class="scene-frame"><canvas id="farm" width="768" height="576" aria-label="口袋田园农场画面"></canvas></div>
+        <div class="touch-controls" aria-label="手机操作"><div class="dpad"><button type="button" data-direction="up" aria-label="上移">▲</button><button type="button" data-direction="left" aria-label="左移">◀</button><button type="button" data-direction="down" aria-label="下移">▼</button><button type="button" data-direction="right" aria-label="右移">▶</button></div><button id="touch-use" class="touch-use" type="button">使用</button></div>
         <div class="tool-panel">
           <div class="panel-heading"><h2>农具与种子</h2><span>按 1–4 切换工具</span></div>
           <div id="tools" class="tools"></div>
@@ -53,6 +54,7 @@
     </main>
     <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
   </div>
+  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="panel-heading"><h2>作物图鉴</h2><button id="close-codex" class="quiet-button" type="button">关闭</button></div><p>按每 G 种子投入的出售价排序</p><div id="codex-list"></div></div></div>
   <script src="farm-logic.js"></script>
   <script src="game.js"></script>
 </body>
