@@ -66,7 +66,7 @@ const context = vm.createContext({
 });
 for (const script of scripts) vm.runInContext(script, context, { filename: file });
 assert.equal(typeof context.Image, 'undefined', '冒烟环境不提供 Image，必须完整走程序绘制回退');
-assert.equal(Object.keys(context.window.__SPRITE_DATA__).length, 32, '单文件内嵌全部 32 项 PNG 素材');
+assert.equal(Object.keys(context.window.__SPRITE_DATA__).length, 44, '单文件内嵌全部 44 项 PNG 素材');
 assert.ok(Object.values(context.window.__SPRITE_DATA__).every(value => value.startsWith('data:image/png;base64,')));
 assert.equal(element('farm').width, 3072);
 assert.equal(element('farm').height, 2304);
@@ -244,8 +244,21 @@ const fallbackContext = vm.createContext({ document, window: { devicePixelRatio:
 for (const script of scripts) vm.runInContext(script, fallbackContext, { filename: file });
 fallbackCallbacks.shift()(now + 16);
 assert.equal(typeof fallbackContext.Image, 'undefined');
+for (const facing of ['down', 'up', 'left', 'right']) {
+  const facingSave = context.PocketFarm.createGame();
+  facingSave.farmer.facing = facing;
+  storage.set('pocket-farm-save-v1', JSON.stringify(facingSave));
+  const facingCallbacks = [];
+  const facingContext = vm.createContext({ document, window: { devicePixelRatio: 2, addEventListener() {} },
+    localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+    performance: { now: () => now }, requestAnimationFrame: callback => facingCallbacks.push(callback),
+    setTimeout: callback => { callback(); return 1; }, HTMLButtonElement: class {}, confirm: () => true, console });
+  for (const script of scripts) vm.runInContext(script, facingContext, { filename: file });
+  assert.equal(typeof facingContext.Image, 'undefined');
+  assert.doesNotThrow(() => facingCallbacks.shift()(now + 32), `农夫 ${facing} 方向程序回退应可绘制`);
+}
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
 console.log('新增 UI 断言通过：v8、采集/鱼竿工具、野外资源背包、三种制作，以及原生存与村民界面。');
-console.log('素材回退通过：无 Image 下显式绘制房屋、林木、采空资源、栅栏、稻草人及五种作物四阶段，均走第十四遍程序绘制。');
+console.log('素材回退通过：无 Image 下显式绘制农夫四方向、房屋、林木、采空资源、栅栏、稻草人及五种作物四阶段，均走程序绘制。');
 console.log('播种后移动冒烟通过；相机裁切与跟随、3072×2304 与窄屏 1440×1080 backstore、逐帧贴图和静态层按需重绘断言通过。');
 console.log(`模拟 Canvas 连续 60 帧完成：总耗时 ${frameCost.toFixed(1)} ms，平均 ${(frameCost / 60).toFixed(2)} ms/帧。`);

@@ -8,6 +8,7 @@ const spriteDir = join(dir, 'pilot-assets/game');
 const spriteData = Object.fromEntries(readdirSync(spriteDir).filter(name => name.endsWith('.png')).sort().map(file => [
   file.slice(0, -4), `data:image/png;base64,${readFileSync(join(spriteDir, file)).toString('base64')}`
 ]));
+if (Object.keys(spriteData).length !== 44) throw new Error(`素材数量应为 44，实际为 ${Object.keys(spriteData).length}`);
 const game = `window.__SPRITE_DATA__=${JSON.stringify(spriteData)};\n${read('game.js')}`;
 const html = read('index.html')
   .replace('<link rel="stylesheet" href="style.css">', `<style>\n${read('style.css')}\n</style>`)

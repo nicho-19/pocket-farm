@@ -244,3 +244,12 @@ CSS 硬编码自查命令：`awk 'BEGIN{root=1} /^}/{if(root){root=0; next}} !ro
 - 32 项素材逐项维护 `loaded` 状态，`drawSprite` 在未就绪、零尺寸或 `drawImage` 异常时返回失败，调用点随即执行第十四遍程序分支。无 `Image` 时不创建任何图片对象。Node 单文件冒烟明确断言环境无 `Image`，并走通房屋、林木、草地、资源节点和图鉴五种成熟作物的程序回退；结构与采空节点沿用同一返回值分支，逻辑不依赖图片状态。
 - `build-standalone.mjs` 将 32 个 PNG 生成 `window.__SPRITE_DATA__` data URI 映射并置于 `game.js` 前，同一 HTML 仍只有两段内联脚本。最终 `pocket-farm-standalone.html` 为 **6,756,965 字节（约 6.44 MiB）**，未超过 12 MiB，因此未做二次 PNG 量化。
 - 未在本机真实浏览器验证各素材实际观感、树冠/屋顶遮挡、四季叠色、纹理拼接、缩放边缘与浏览器/GPU 性能；未验证通过 `file://` 直开多文件版时各浏览器对相对图片路径的加载策略。Node 无图冒烟只证明完整回退与交互可运行，不代表图片路径成功显示。
+
+## 第十六遍实施记录（2026-10-05）
+
+- 本遍只接入主角农夫。AI 生图人物经过多轮抠图、切帧和方向一致性复核，最终采用 `pilot-assets/preview16f/` 的浅奶黄梨形奶蛙（草帽、大白肚）四方向各三帧；12 张定稿逐一复制到 `pilot-assets/game/`，源图哈希一致。`preview16f`、其余预览与各 `raw` 目录保留为草稿；游戏目录删除未接入的 `char-mayor.png`、`char-merchant.png`、`char-hunter.png`、`char-bandit.png`。
+- 奶蛙使用底部中心锚点，实值为格内 **`x+24, y+46`**，目标高度 **46px**，未使用 ±2px 额外微调。站立为帧 0；走路沿用 65ms 四相位并映射 **`[1, 0, 2, 0]`**。站立呼吸与走路 bob 沿用原 y 偏移。影子位置、形状不变；工具持握与 200ms 挥动代码仍在身体之后执行。
+- `drawSpriteH` 按目标高度换算宽度并复用 `drawSprite` 的就绪判断和异常保护。素材按当前方向、当前帧判断；未就绪、无 `Image` 或绘制失败时整身进入原农夫程序路径。`drawVillager`、`drawBandit`、`drawVillagerPortrait` 未改。冒烟在无 `Image` 环境显式创建并绘制 down/up/left/right 四种朝向，全部不抛错。
+- `pilot-assets/game/` 现有 **44** 项 PNG（第十五遍 32 + 奶蛙 12）；构建脚本和冒烟均显式断言 44。最终 `pocket-farm-standalone.html` 为 **7,695,628 字节（约 7.34 MiB）**。
+- 验收：两个 JS 的 `node --check` 通过；逻辑测试 **63/63**；构建成功；独立版冒烟通过，60 帧 Node 模拟为 **194.9 ms、3.25 ms/帧**；`~/workspace/harness-pocket-farm.mjs` 端到端通过，初始化与移动共 **162,583 次绘制 / 75 种颜色**。CSS 变量区外十六进制颜色 **0**，`farm-logic.js` diff 为空，`git diff --check` 通过。
+- 未验证：真实桌面浏览器和手机上的奶蛙视觉比例、工具与身体遮挡、四方向切换观感、触控及真实 GPU 帧率；Node 无图回退不代表浏览器图片加载与显示效果。

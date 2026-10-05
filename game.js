@@ -20,6 +20,9 @@
     'node-stump': 'pilot-assets/game/node-stump.png', 'node-berry': 'pilot-assets/game/node-berry.png', 'node-rock': 'pilot-assets/game/node-rock.png',
     'prop-scarecrow': 'pilot-assets/game/prop-scarecrow.png', 'prop-fence': 'pilot-assets/game/prop-fence.png',
     'tex-grass': 'pilot-assets/game/tex-grass.png',
+    ...Object.fromEntries(['down', 'up', 'left', 'right'].flatMap(direction =>
+      [0, 1, 2].map(frame => [`char-farmer-${direction}-${frame}`, `pilot-assets/game/char-farmer-${direction}-${frame}.png`])
+    )),
     ...Object.fromEntries(['carrot', 'potato', 'strawberry', 'pumpkin', 'corn'].flatMap(type =>
       [1, 2, 3, 4].map(stage => [`crop-${type}-${stage}`, `pilot-assets/game/crop-${type}-${stage}.png`]))
     )
@@ -61,6 +64,13 @@
       target.drawImage(image, Math.round(cx - targetW / 2), Math.round(bottomY - targetH), Math.round(targetW), Math.round(targetH));
       return true;
     } catch (_) { return false; }
+  }
+
+  function drawSpriteH(name, cx, bottomY, targetH, target = ctx) {
+    if (!spriteReady(name)) return false;
+    const image = spriteImages[name].image;
+    const sourceW = image.naturalWidth || image.width, sourceH = image.naturalHeight || image.height;
+    return drawSprite(name, cx, bottomY, targetH * sourceW / sourceH, target);
   }
 
   preloadSprites();
@@ -971,7 +981,10 @@
     const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -(frame % 2) : Math.floor(now / 900) % 2);
     const facing = state.farmer.facing;
     shadow(x + 21, y + 39, 16, 5);
-    box(x + 10, y + 29, 8, 7 + feet, WORLD_COLORS.pants);
+    const spriteFrame = walking ? [1, 0, 2, 0][frame] : 0;
+    if (!drawSpriteH(`char-farmer-${facing}-${spriteFrame}`, FIELD_X + state.farmer.x * TILE + TILE / 2,
+      FIELD_Y + state.farmer.y * TILE + 46 + (y - (FIELD_Y + state.farmer.y * TILE + 5)), 46)) {
+      box(x + 10, y + 29, 8, 7 + feet, WORLD_COLORS.pants);
     box(x + 23, y + 29, 8, 7 - feet, WORLD_COLORS.pants);
     box(x + 9, y + 35 + feet, 10, 4, WORLD_COLORS.shoes);
     box(x + 22, y + 35 - feet, 10, 4, WORLD_COLORS.shoes);
@@ -997,7 +1010,7 @@
     box(x + 12, y, 18, 7, WORLD_COLORS.hat);
     box(x + 16, y + 2, 11, 1, WORLD_COLORS.woodLight);
     for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 2, x + 16 + i * 3, y + 6, WORLD_COLORS.roofRidge);
-    if (facing !== 'up') {
+      if (facing !== 'up') {
       if (facing === 'left') box(x + 13, y + 16, 3, 3, WORLD_COLORS.ink);
       else if (facing === 'right') box(x + 27, y + 16, 3, 3, WORLD_COLORS.ink);
       else {
@@ -1008,6 +1021,7 @@
       const eyeX = facing === 'left' ? x + 13 : facing === 'right' ? x + 29 : x + 16;
       box(eyeX, y + 15, 1, 1, WORLD_COLORS.windowGlow);
       if (facing === 'down') box(x + 27, y + 15, 1, 1, WORLD_COLORS.windowGlow);
+      }
     }
     if (now >= swingUntil) {
       const tx = facing === 'left' ? x + 1 : x + 37;
