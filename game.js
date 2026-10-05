@@ -752,13 +752,17 @@
     const progress = crop.progress;
     const mature = progress >= F.CROPS[crop.type].days;
     const offset = mature && Math.floor(now / 800) % 2 ? -1 : 0;
-    px += Math.sin(now / 600 + hash(px / TILE, py / TILE, 180) * 7) * (mature ? 2 : 1);
+    const gridX = Math.floor(px / TILE), gridY = Math.floor(py / TILE);
+    const stableOffset = Math.floor(hash(gridX, gridY, 181) * 5) - 2;
+    px += stableOffset + Math.round(Math.sin(now / 600 + hash(gridX, gridY, 180) * 7) * (mature ? 1 : 0.5));
     py += offset;
     const center = px + 24;
     const paint = (x, y, w, h, color) => { target.fillStyle = color; target.fillRect(Math.round(x), Math.round(y), w, h); };
     const line = (x1, y1, x2, y2, color) => {
-      target.beginPath(); target.moveTo(x1, y1); target.lineTo(x2, y2);
-      target.strokeStyle = color; target.lineWidth = 0.5; target.lineCap = 'round'; target.stroke();
+      const dx = x2 - x1, dy = y2 - y1, steps = Math.max(Math.abs(dx), Math.abs(dy));
+      target.fillStyle = color;
+      if (!steps) { target.fillRect(Math.round(x1), Math.round(y1), 1, 1); return; }
+      for (let i = 0; i <= steps; i++) target.fillRect(Math.round(x1 + dx * i / steps), Math.round(y1 + dy * i / steps), 1, 1);
     };
     if (progress === 0) {
       paint(center - 6, py + 27, 12, 6, '#a77b53');
@@ -893,9 +897,10 @@
     box(x + 9, y + 35 + feet, 10, 4, WORLD_COLORS.shoes);
     box(x + 22, y + 35 - feet, 10, 4, WORLD_COLORS.shoes);
     box(x + 8, y + 20, 25, 13, facing === 'up' ? WORLD_COLORS.shirt : WORLD_COLORS.denim);
+    box(x + 8, y + 30, 25, 3, WORLD_COLORS.denimDark);
     box(x + 11, y + 22, 18, 2, WORLD_COLORS.denimLight);
     pixelLine(x + 12, y + 26.5, x + 16, y + 31, WORLD_COLORS.denimDark);
-    pixelLine(x + 26, y + 24, x + 28, y + 30.5, '#9bc2c6');
+    pixelLine(x + 26, y + 24, x + 28, y + 30.5, WORLD_COLORS.waterLight);
     const arms = { up: [7, 30], down: [5, 32], left: [6, 31], right: [6, 31] }[facing];
     box(x + arms[0], y + 22 + feet, 5, 10, WORLD_COLORS.skinLight);
     if (facing === 'up' || facing === 'down') box(x + arms[1], y + 22 - feet, 5, 10, WORLD_COLORS.skinLight);
@@ -911,19 +916,19 @@
     box(x + 10, y + 7, 22, 6, WORLD_COLORS.hatBand);
     box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, WORLD_COLORS.hatBrim);
     box(x + 12, y, 18, 7, WORLD_COLORS.hat);
-    box(x + 16, y + 2, 11, 1, '#e4c989');
-    for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 1.5, x + 16 + i * 3, y + 5.5, '#efd79a', 0.5);
+    box(x + 16, y + 2, 11, 1, WORLD_COLORS.woodLight);
+    for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 2, x + 16 + i * 3, y + 6, WORLD_COLORS.roofRidge);
     if (facing !== 'up') {
-      if (facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
-      else if (facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
+      if (facing === 'left') box(x + 13, y + 16, 3, 3, WORLD_COLORS.ink);
+      else if (facing === 'right') box(x + 27, y + 16, 3, 3, WORLD_COLORS.ink);
       else {
         box(x + 16, y + 15, 3, 3, WORLD_COLORS.ink);
         box(x + 25, y + 15, 3, 3, WORLD_COLORS.ink);
-        box(x + 20, y + 20, 3, 1, '#b97761');
+        box(x + 20, y + 20, 3, 1, WORLD_COLORS.roofRed);
       }
-      const eyeX = facing === 'left' ? x + 13.5 : facing === 'right' ? x + 27.5 : x + 16.5;
-      ctx.fillStyle = '#fff7de'; ctx.fillRect(eyeX, y + 15.5, 0.5, 0.5);
-      if (facing === 'down') ctx.fillRect(x + 25.5, y + 15.5, 0.5, 0.5);
+      const eyeX = facing === 'left' ? x + 13 : facing === 'right' ? x + 29 : x + 16;
+      box(eyeX, y + 15, 1, 1, WORLD_COLORS.windowGlow);
+      if (facing === 'down') box(x + 27, y + 15, 1, 1, WORLD_COLORS.windowGlow);
     }
     if (now >= swingUntil) {
       const tx = facing === 'left' ? x + 1 : x + 37;
@@ -957,7 +962,10 @@
     const short = id === 'hunter' ? 3 : 0;
     shadow(x + 24, baseY + 40, 13, 4);
     box(x + 16, y + 19 + short, 16, 20 - short, { mayor: WORLD_COLORS.hutBlue, merchant: WORLD_COLORS.hutRed, hunter: WORLD_COLORS.hutGreen }[id]);
+    box(x + 18, y + 21 + short, 4, 15 - short, WORLD_COLORS.shadow);
+    box(x + 23, y + 20 + short, 7, 2, WORLD_COLORS.wall);
     box(x + 19, y + 9 + short, 11, 12, WORLD_COLORS.skin);
+    box(x + 20, y + 11 + short, 3, 2, WORLD_COLORS.skinLight);
     if (id === 'mayor') {
       box(x + 16, y + 4, 17, 4, WORLD_COLORS.ink); box(x + 19, y, 11, 6, WORLD_COLORS.hutBlue);
       box(x + 18, y + 17, 13, 8, WORLD_COLORS.beard); box(x + 20, y + 23, 9, 4, WORLD_COLORS.beard);
