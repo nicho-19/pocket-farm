@@ -17,15 +17,15 @@
   --line:#b79a71;--surface:#fffdf5;--sky:#e8f0dc;--white:#fff;
   --spring:#4c803c;--summer:#a35d20;--autumn:#86571a;--winter:#286780;
   --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:24px;
-  --radius-sm:8px;--radius-md:12px;--radius-pill:999px;
-  --shadow-low:0 3px 0 var(--wood-light);--shadow-high:0 8px 24px #493a2a33;
-  --shadow-active:0 0 0 2px var(--wheat),0 5px 14px var(--wheat-light);--watch-glow:#485eac;
+  --radius-sm:3px;--radius-md:5px;--radius-pill:3px;
+  --shadow-low:0 3px 0 var(--wood-light);--shadow-high:4px 6px 0 var(--wood-light);
+  --shadow-active:0 0 0 2px var(--wheat),4px 5px 0 var(--wheat-light);--watch-glow:#485eac;
   --font-body:Verdana,"Microsoft YaHei",sans-serif;--font-display:Georgia,"Microsoft YaHei",serif;
   --text-xs:12px;--text-sm:14px;--text-md:16px;--text-lg:24px;
   --motion-panel:190ms;
 }
 *{box-sizing:border-box}
-body{margin:0;background:linear-gradient(145deg,var(--sky),var(--cream-deep));color:var(--wood-dark);font:var(--text-md)/1.5 var(--font-body)}
+body{margin:0;background:var(--sky);color:var(--wood-dark);font:var(--text-md)/1.5 var(--font-body)}
 button{font:inherit;cursor:pointer;color:inherit}
 button:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--wheat);outline-offset:3px}
 .page{max-width:1390px;margin:auto;padding:var(--space-5)}
@@ -41,7 +41,7 @@ h2{font-size:var(--text-md);margin:0;color:var(--wood-dark)}
 .status-group{display:flex;align-items:center;flex-wrap:wrap;gap:var(--space-3);min-width:0}
 .status-group strong{font-size:var(--text-md);color:var(--wood-dark);white-space:nowrap}
 .status-day>span:not(.season-dot){padding-left:var(--space-3);border-left:1px solid var(--line);font-size:var(--text-sm);color:var(--wood-dark)}
-.season-dot{width:14px;height:14px;border-radius:50%;background:var(--spring);box-shadow:0 0 0 2px var(--cream),0 0 0 3px var(--wood-light)}
+.season-dot{width:14px;height:14px;border-radius:2px;background:var(--spring);box-shadow:0 0 0 2px var(--cream),0 0 0 3px var(--wood-light)}
 .season-dot[data-season="夏"]{background:var(--summer)}.season-dot[data-season="秋"]{background:var(--autumn)}.season-dot[data-season="冬"]{background:var(--winter)}
 .gold-item{display:flex;align-items:center;gap:var(--space-2);white-space:nowrap}
 .coin-icon{width:20px;height:18px;border:2px solid var(--wheat);border-radius:3px 3px 8px 8px;position:relative;background:var(--wheat-light)}
@@ -57,11 +57,11 @@ h2{font-size:var(--text-md);margin:0;color:var(--wood-dark)}
 @keyframes health-pulse{50%{opacity:.5}}
 .main-grid{display:grid;grid-template-columns:minmax(0,768px) minmax(275px,1fr);gap:var(--space-5);align-items:start}
 .scene-frame{position:relative;padding:7px;background:var(--cream);border:2px solid var(--wood-light);border-bottom-width:5px;border-radius:var(--radius-md);box-shadow:var(--shadow-high);line-height:0;touch-action:none}
-.scene-frame canvas{display:block;width:100%;height:auto;image-rendering:auto;border-radius:4px;touch-action:none}
+.scene-frame canvas{display:block;width:100%;height:auto;image-rendering:pixelated;border-radius:0;touch-action:none}
 .tutorial-bubble{position:absolute;top:var(--space-4);left:50%;transform:translateX(-50%);width:max-content;max-width:85%;padding:var(--space-3) var(--space-4);border:2px solid var(--wood-light);border-radius:var(--radius-md);background:var(--cream);box-shadow:var(--shadow-high);line-height:1.5;text-align:center;font-size:var(--text-sm);font-weight:bold;pointer-events:none}
 [hidden]{display:none!important}
 .tool-panel,.side-card{background:var(--surface);border:2px solid var(--wood-light);border-bottom-width:4px;border-radius:var(--radius-md);padding:var(--space-4);margin-top:var(--space-4);box-shadow:var(--shadow-low)}
-.panel-heading{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);margin:-16px -16px 12px;padding:var(--space-2) var(--space-4);background:var(--wood-mid);border-radius:9px 9px 0 0;min-height:44px}
+.panel-heading{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);margin:-16px -16px 12px;padding:var(--space-2) var(--space-4);background:var(--wood-mid);border-radius:3px 3px 0 0;min-height:44px}
 .panel-heading h2{flex:1;text-align:center;color:var(--cream);font-size:var(--text-md)}
 .panel-heading span{font-size:var(--text-xs);color:var(--cream)}
 .tools{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2)}
@@ -113,12 +113,12 @@ kbd{background:var(--cream);border:1px solid var(--line);border-bottom-width:3px
 .use-progress{position:absolute;inset:5px;border-radius:50%;background:conic-gradient(var(--wheat) var(--use-progress),transparent var(--use-progress));mask:radial-gradient(transparent 58%,var(--wood-dark) 60%);pointer-events:none}
 .modal{position:fixed;inset:0;z-index:10;background:color-mix(in srgb,var(--wood-dark) 67%,transparent);display:grid;place-items:center;padding:var(--space-4)}
 .modal-card{width:min(590px,100%);max-height:90vh;overflow:auto;background:var(--surface);border:3px solid var(--wood-light);border-radius:var(--radius-md);padding:var(--space-4);box-shadow:var(--shadow-high)}
-.modal-heading{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;margin:-16px -16px 12px;background:var(--wood-mid);border-radius:8px 8px 0 0}
+.modal-heading{position:relative;display:flex;align-items:center;justify-content:center;min-height:48px;margin:-16px -16px 12px;background:var(--wood-mid);border-radius:3px 3px 0 0}
 .modal-heading h2{color:var(--cream);text-align:center}
-.close-button{position:absolute;right:var(--space-2);top:6px;width:36px;height:36px;border:2px solid var(--cream);border-radius:50%;background:var(--wood-dark);color:var(--cream);font-size:24px;line-height:1}
+.close-button{position:absolute;right:var(--space-2);top:6px;width:36px;height:36px;border:2px solid var(--cream);border-radius:3px;background:var(--wood-dark);color:var(--cream);font-size:24px;line-height:1}
 .modal-card p{font-size:var(--text-sm)}
 .codex-row,.order-row{display:grid;grid-template-columns:52px 1fr;align-items:center;gap:var(--space-3);border-top:1px dashed var(--line);padding:var(--space-2) 0;font-size:var(--text-sm)}
-.codex-row canvas{width:48px;height:48px;image-rendering:auto}
+.codex-row canvas{width:48px;height:48px;image-rendering:pixelated}
 .codex-row strong{display:block;font-size:var(--text-md)}
 .order-row{display:flex;justify-content:space-between}
 .tabs{display:flex;gap:var(--space-2);margin:var(--space-3) 0}
@@ -985,7 +985,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   const BEST_KEY = 'pocket-farm-best-days';
   const TILE = 48;
   const RENDER_SCALE = 2;
-  const STATIC_SCALE = 1.5;
+  const STATIC_SCALE = 2;
   const SCENE_WIDTH = 768;
   const SCENE_HEIGHT = 576;
   const FIELD_X = 0;
@@ -1008,43 +1008,45 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     canvas.width = width;
     canvas.height = height;
     sceneContext.scale(width / SCENE_WIDTH, height / SCENE_HEIGHT);
-    sceneContext.imageSmoothingEnabled = true;
-    staticContext.imageSmoothingEnabled = true;
+    sceneContext.imageSmoothingEnabled = false;
+    staticContext.imageSmoothingEnabled = false;
     staticKey = '';
   }
   resizeCanvas();
   staticCanvas.width = Math.round(WORLD_WIDTH * STATIC_SCALE);
   staticCanvas.height = Math.round(WORLD_HEIGHT * STATIC_SCALE);
   staticContext.scale(STATIC_SCALE, STATIC_SCALE);
+  staticContext.imageSmoothingEnabled = false;
   window.addEventListener('resize', resizeCanvas);
 
   const palette = {
-    '春': { grass: '#8eb76b', grassDark: '#75a05d', light: '#b9ce80', sky: '#d7e4b2' },
-    '夏': { grass: '#74ad63', grassDark: '#5d9857', light: '#a8c66a', sky: '#c5dfad' },
-    '秋': { grass: '#b2aa67', grassDark: '#969658', light: '#d1bf77', sky: '#e7d4aa' },
-    '冬': { grass: '#aac1b8', grassDark: '#8aada8', light: '#d8dfd0', sky: '#dfe9e1' }
+    '春': { grass: '#8eb76b', grassDark: '#75a05d', grassDeep: '#4f7f4b', grassMid: '#a7c96e', light: '#b9ce80', sky: '#d7e4b2' },
+    '夏': { grass: '#74ad63', grassDark: '#5d9857', grassDeep: '#315d47', grassMid: '#8ebd68', light: '#a8c66a', sky: '#c5dfad' },
+    '秋': { grass: '#b2aa67', grassDark: '#969658', grassDeep: '#667b50', grassMid: '#c2ad62', light: '#d1bf77', sky: '#e7d4aa' },
+    '冬': { grass: '#aac1b8', grassDark: '#8aada8', grassDeep: '#68777d', grassMid: '#c2d2c7', light: '#d8dfd0', sky: '#dfe9e1' }
   };
   const cropColors = { carrot: '#ef9252', potato: '#d5b481', pumpkin: '#e5a44b', strawberry: '#df514f', corn: '#f4c851' };
   const icons = { hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
   const WORLD_COLORS = {
-    water: '#6aaeb7', waterLight: '#a8d6c9', waterDeep: '#4c8fa4', waterGlint: '#d5f0df',
+    water: '#67b6b8', waterLight: '#98d7cf', waterDeep: '#2f7088', waterMid: '#3e91a4', waterGlint: '#d7f0d9',
     sand: '#c7ad75', sandDark: '#9d8158', path: '#b9a276', pathLight: '#d3c09a', pathDark: '#8d7655', gravel: '#9e8968',
     soil: '#8a6249', soilPlanted: '#78543f', furrow: '#684733', furrowLight: '#bb8e65', soilSpeck: '#af805c',
     bark: '#795d45', barkLight: '#a47b54', barkDark: '#5c4030', rootSoil: '#816547',
     wood: '#806447', woodLight: '#d9ba7f', woodDark: '#654d39', woodGrain: '#9d754f',
     wall: '#dfbf86', wallShade: '#cba873', window: '#ffe0a1', windowGlow: '#fff0bd', door: '#785b45', metal: '#d5ddd5',
-    roofHome: '#a26d4c', roofRidge: '#d18b5d', roofBlue: '#657f91', roofRed: '#a75d4f', roofMoss: '#667b50',
+    roofHome: '#be6846', roofRidge: '#edae70', roofShade: '#713e34', roofMid: '#9d503c', roofLight: '#da8956', roofBlue: '#657f91', roofRed: '#a75d4f', roofMoss: '#667b50',
     plaza: '#c9af80', plazaLight: '#e9d5a9', plazaEdge: '#a98d67', shadow: '#293c3655',
     springFlower: '#f5c4cf', springFlowerLight: '#fff0e6', summerFlower: '#f0ce58', summerFlowerLight: '#fff4bd',
     autumnLeaf: '#d9783f', autumnLeafLight: '#edb34f', frost: '#edf5ed', frostShade: '#cedfd9',
-    leafGreen: '#699a50', leafLight: '#a6c66d', dust: '#b58a62', star: '#ffe58a',
+    leafGreen: '#4f7f4b', leafLight: '#a7c96e', leafDeep: '#315d47', leafMid: '#74a75a', leafSun: '#d8dd8b', dust: '#b58a62', star: '#ffe58a',
     hutBlue: '#708baf', hutRed: '#bc745a', hutGreen: '#617c55', whiteFlash: '#fffdf5', cloudShadow: '#3d5b5528',
     springMid: '#d391a7', summerMid: '#4b8c50', autumnMid: '#c99d50',
     springTop: '#f2bdc5', summerTop: '#78b263', autumnTop: '#edce72', capeLight: '#503344', capeDark: '#422c3d',
     skin: '#e8ae7a', skinLight: '#edb881', ink: '#3c4540', hat: '#ccaa68', hatBrim: '#b48b56', hatBand: '#795a3d',
     denim: '#557f9a', denimDark: '#315c73', denimLight: '#739fb2', shirt: '#426f82', pants: '#775c4b', shoes: '#45423f',
-    beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1'
+    beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1',
+    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646'
   };
   const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
@@ -1321,20 +1323,125 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   function shadow(x, y, rx, ry) {
-    ctx.beginPath();
-    ctx.ellipse(Math.round(x + 3), Math.round(y + 3), rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = WORLD_COLORS.shadow;
-    ctx.fill();
+    box(x - rx + 3, y - ry + 3, rx * 2, ry * 2, WORLD_COLORS.shadow);
+    box(x - rx + 5, y - ry + 1, rx * 2 - 4, 2, WORLD_COLORS.shadow);
   }
 
   function pixelLine(x1, y1, x2, y2, color, size = 1) {
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = size / RENDER_SCALE;
-    ctx.lineCap = 'round';
-    ctx.stroke();
+    const dx = x2 - x1, dy = y2 - y1;
+    const steps = Math.max(Math.abs(dx), Math.abs(dy));
+    const width = Math.max(1, Math.round(size));
+    if (!steps) { box(x1, y1, width, width, color); return; }
+    for (let i = 0; i <= steps; i++) box(x1 + dx * i / steps, y1 + dy * i / steps, width, width, color);
+  }
+
+  function drawGrassTile(px, py, x, y, terrain, p) {
+    const base = terrain === 'residential' ? p.light : p.grass;
+    box(px, py, TILE, TILE, base);
+    const variant = Math.floor(hash(x, y, 18) * 3);
+    const patches = [
+      [[5, 7, 10, 4], [31, 30, 12, 5], [17, 39, 8, 3]],
+      [[28, 6, 13, 5], [6, 25, 9, 6], [24, 40, 11, 3]],
+      [[9, 10, 8, 5], [25, 21, 15, 6], [4, 39, 12, 3]]
+    ][variant];
+    patches.forEach((patch, i) => {
+      const [dx, dy, width, height] = patch;
+      box(px + dx, py + dy, width, height, i === 1 ? p.grassMid : p.grassDark);
+      box(px + dx + 2, py + dy, Math.max(2, width - 5), 2, i ? base : p.light);
+    });
+    const clusterCount = 2 + Math.floor(hash(x, y, 140) * 3);
+    for (let i = 0; i < clusterCount; i++) {
+      const gx = px + 6 + Math.floor(hash(x, y, 141 + i) * 35);
+      const gy = py + 13 + Math.floor(hash(x, y, 145 + i) * 27);
+      pixelLine(gx, gy + 5, gx - 3, gy + variant % 2, p.grassDeep);
+      pixelLine(gx + 1, gy + 5, gx + 1, gy - 2, p.grassDark);
+      pixelLine(gx + 3, gy + 5, gx + 5, gy + 1, p.grassMid);
+      if (i % 2) box(gx - 1, gy + 5, 5, 2, p.grassDeep);
+    }
+    if (hash(x, y, 153) > 0.66) {
+      const sx = px + 8 + Math.floor(hash(x, y, 154) * 30);
+      const sy = py + 9 + Math.floor(hash(x, y, 155) * 29);
+      box(sx, sy + 2, 6, 3, WORLD_COLORS.plazaEdge);
+      box(sx + 1, sy, 4, 3, WORLD_COLORS.plazaLight);
+    }
+    const season = F.season(state);
+    if (hash(x, y, 150) > 0.6) {
+      const fx = px + 7 + Math.floor(hash(x, y, 151) * 33), fy = py + 7 + Math.floor(hash(x, y, 152) * 32);
+      const accents = season === '春' ? [WORLD_COLORS.springFlower, WORLD_COLORS.springFlowerLight] : season === '夏' ? [WORLD_COLORS.summerFlower, WORLD_COLORS.summerFlowerLight] : season === '秋' ? [WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnLeafLight] : [WORLD_COLORS.frost, WORLD_COLORS.frostShade];
+      box(fx - 2, fy, 2, 2, accents[0]); box(fx + 2, fy + 1, 2, 2, accents[1]); box(fx, fy + 2, 2, 2, accents[0]);
+    }
+  }
+
+  function drawPathTile(px, py, x, y) {
+    box(px, py, TILE, TILE, WORLD_COLORS.path);
+    const bite = 2 + Math.floor(hash(x, y, 116) * 4);
+    for (let i = 0; i < 4; i++) {
+      const offset = 4 + Math.floor(hash(x, y, 117 + i) * 35);
+      box(px, py + offset, bite + i % 2, 3, i % 2 ? WORLD_COLORS.pathDark : WORLD_COLORS.gravel);
+      box(px + TILE - bite - (i + 1) % 2, py + (offset + 17) % 42, bite + (i + 1) % 2, 3, i % 2 ? WORLD_COLORS.gravel : WORLD_COLORS.pathDark);
+    }
+    box(px + 9, py + 7 + Math.floor(hash(x, y, 121) * 7), 25 + Math.floor(hash(x, y, 122) * 6), 3, WORLD_COLORS.pathLight);
+    box(px + 14, py + 31 + Math.floor(hash(x, y, 123) * 5), 20, 2, WORLD_COLORS.pathDark);
+    for (let i = 0; i < 8; i++) {
+      const gx = px + 7 + Math.floor(hash(x, y, 124 + i) * 34);
+      const gy = py + 5 + Math.floor(hash(x, y, 134 + i) * 38);
+      box(gx, gy, 1 + i % 3, i % 2 + 1, i % 3 ? WORLD_COLORS.gravel : WORLD_COLORS.pathLight);
+    }
+    if ((x + y) % 3 === 0) {
+      const sx = px + 14 + Math.floor(hash(x, y, 146) * 10), sy = py + 18 + Math.floor(hash(x, y, 147) * 10);
+      box(sx, sy + 2, 14, 6, WORLD_COLORS.plazaEdge);
+      box(sx + 2, sy, 10, 5, WORLD_COLORS.plazaLight);
+      box(sx + 3, sy + 1, 6, 2, WORLD_COLORS.wallShade);
+    }
+  }
+
+  function drawPondTile(px, py, x, y, pond) {
+    const edgeLeft = x === pond.left, edgeRight = x === pond.right;
+    const edgeTop = y === pond.top, edgeBottom = y === pond.bottom;
+    box(px, py, TILE, TILE, WORLD_COLORS.waterDeep);
+    box(px + 3, py + 3, 42, 42, WORLD_COLORS.waterMid);
+    if (edgeLeft) { box(px, py, 8, TILE, WORLD_COLORS.waterLight); box(px + 7, py + 2, 4, 44, WORLD_COLORS.water); }
+    if (edgeRight) { box(px + 40, py, 8, TILE, WORLD_COLORS.waterLight); box(px + 37, py + 2, 4, 44, WORLD_COLORS.water); }
+    if (edgeTop) { box(px, py, TILE, 8, WORLD_COLORS.waterLight); box(px + 2, py + 7, 44, 4, WORLD_COLORS.water); }
+    if (edgeBottom) { box(px, py + 40, TILE, 8, WORLD_COLORS.waterLight); box(px + 2, py + 37, 44, 4, WORLD_COLORS.water); }
+    for (let i = 0; i < 5; i++) {
+      const wx = px + 5 + Math.floor(hash(x, y, 101 + i) * 34);
+      const wy = py + 8 + Math.floor(hash(x, y, 111 + i) * 30);
+      const width = 4 + i % 3 * 3;
+      box(wx, wy, width, i % 2 + 1, i % 2 ? WORLD_COLORS.water : WORLD_COLORS.waterLight);
+      if (i === 1 || i === 4) box(wx + 2, wy - 2, Math.max(2, width - 4), 1, WORLD_COLORS.waterGlint);
+    }
+    // 荷叶只占水面小部分，不改变或遮挡钓点交互语义。
+    if (hash(x, y, 178) > 0.78 && !F.RESOURCE_NODES.some(node => node.kind === 'fish' && node.x === x && node.y === y)) {
+      const lx = px + 10 + Math.floor(hash(x, y, 179) * 22), ly = py + 15 + Math.floor(hash(x, y, 180) * 17);
+      box(lx + 2, ly, 10, 2, WORLD_COLORS.leafLight);
+      box(lx, ly + 2, 14, 6, WORLD_COLORS.leafGreen);
+      box(lx + 7, ly + 2, 3, 4, WORLD_COLORS.waterMid);
+      if ((x + y) % 2) { box(lx + 4, ly - 3, 2, 3, WORLD_COLORS.springFlower); box(lx + 2, ly - 2, 6, 2, WORLD_COLORS.springFlowerLight); }
+    }
+  }
+
+  function drawShoreTile(px, py, x, y, pond) {
+    const west = x === pond.left - 1, east = x === pond.right + 1;
+    const north = y === pond.top - 1, south = y === pond.bottom + 1;
+    if (west) { box(px + 38, py + 3, 10, 42, WORLD_COLORS.sand); box(px + 43, py + 5, 5, 38, WORLD_COLORS.sandDark); }
+    if (east) { box(px, py + 3, 10, 42, WORLD_COLORS.sand); box(px, py + 5, 5, 38, WORLD_COLORS.sandDark); }
+    if (north) { box(px + 3, py + 38, 42, 10, WORLD_COLORS.sand); box(px + 5, py + 43, 38, 5, WORLD_COLORS.sandDark); }
+    if (south) { box(px + 3, py, 42, 10, WORLD_COLORS.sand); box(px + 5, py, 38, 5, WORLD_COLORS.sandDark); }
+    const horizontal = north || south;
+    for (let i = 0; i < 2; i++) {
+      const sx = px + (horizontal ? 9 + i * 21 : west ? 36 : 3);
+      const sy = py + (horizontal ? north ? 35 : 5 : 10 + i * 22);
+      box(sx, sy + 2, horizontal ? 10 : 7, horizontal ? 5 : 9, WORLD_COLORS.stoneDark);
+      box(sx + 2, sy, horizontal ? 7 : 5, horizontal ? 4 : 6, WORLD_COLORS.stoneLight);
+    }
+    const reeds = 2 + Math.floor(hash(x, y, 160) * 2);
+    for (let i = 0; i < reeds; i++) {
+      const rx = horizontal ? px + 12 + i * 13 : px + (west ? 39 : 7);
+      const ry = horizontal ? py + (north ? 42 : 8) : py + 17 + i * 8;
+      pixelLine(rx, ry, rx + (i % 2 ? 2 : -2), ry - 12, WORLD_COLORS.leafGreen);
+      box(rx + (i % 2 ? 1 : -3), ry - 15, 4, 5, WORLD_COLORS.autumnLeafLight);
+    }
   }
 
   function drawBackground() {
@@ -1345,55 +1452,16 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
       const terrain = F.terrainAt(x, y);
       if (terrain === 'pond') {
-        box(px, py, TILE, TILE, WORLD_COLORS.water);
-        for (let i = 0; i < 5; i++) {
-          const wx = px + 3 + Math.floor(hash(x, y, 101 + i) * 38);
-          const wy = py + 5 + Math.floor(hash(x, y, 111 + i) * 34);
-          box(wx, wy, 5 + i % 3 * 3, 2, i % 2 ? WORLD_COLORS.waterDeep : WORLD_COLORS.waterLight);
-        }
+        drawPondTile(px, py, x, y, L.pond);
       } else if (terrain === 'path' || x === L.gate.x && y >= L.farm.bottom - 1) {
-        box(px, py, TILE, TILE, WORLD_COLORS.path);
-        box(px + 4, py + 8, TILE - 8, 2, WORLD_COLORS.pathLight);
-        pixelLine(px + 1, py + 1, px + 1, py + 47, WORLD_COLORS.pathDark);
-        pixelLine(px + 46, py + 1, px + 46, py + 47, WORLD_COLORS.pathDark);
-        for (let i = 0; i < 7; i++) box(px + 5 + Math.floor(hash(x, y, 120 + i) * 36), py + 5 + Math.floor(hash(x, y, 130 + i) * 38), 2 + i % 2, 2, i % 3 ? WORLD_COLORS.gravel : WORLD_COLORS.pathLight);
+        drawPathTile(px, py, x, y);
       } else {
-        box(px, py, TILE, TILE, terrain === 'residential' ? p.light : p.grass);
-        for (let i = 0; i < 50; i++) {
-          const gx = px + 4 + Math.floor(hash(x, y, 20 + i) * 39);
-          const gy = py + 5 + Math.floor(hash(x, y, 30 + i) * 38);
-          const dotColor = i % 5 ? p.grassDark : p.grass;
-          if (i % 2) box(gx, gy, i % 3 ? 2 : 1, 2 + i % 2, dotColor);
-          else { ctx.beginPath(); ctx.arc(gx, gy, i % 4 ? 0.8 : 1.2, 0, Math.PI * 2); ctx.fillStyle = dotColor; ctx.fill(); }
-        }
-        const clusters = Math.floor(hash(x, y, 140) * 3);
-        for (let i = 0; i < clusters; i++) {
-          const gx = px + 7 + Math.floor(hash(x, y, 141 + i) * 32);
-          const gy = py + 13 + Math.floor(hash(x, y, 145 + i) * 25);
-          pixelLine(gx, gy + 5, gx - 3, gy, p.grassDark, 0.7);
-          pixelLine(gx + 1, gy + 5, gx + 1, gy - 2, p.grassDark, 0.7);
-          pixelLine(gx + 2, gy + 5, gx + 5, gy + 1, p.light, 0.7);
-        }
-        const season = F.season(state);
-        if (hash(x, y, 150) > 0.58) {
-          const fx = px + 7 + Math.floor(hash(x, y, 151) * 33), fy = py + 7 + Math.floor(hash(x, y, 152) * 32);
-          const accents = season === '春' ? [WORLD_COLORS.springFlower, WORLD_COLORS.springFlowerLight] : season === '夏' ? [WORLD_COLORS.summerFlower, WORLD_COLORS.summerFlowerLight] : season === '秋' ? [WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnLeafLight] : [WORLD_COLORS.frost, WORLD_COLORS.frostShade];
-          box(fx - 2, fy, 2, 2, accents[0]); box(fx + 2, fy + 1, 2, 2, accents[1]); box(fx, fy + 2, 2, 2, accents[0]);
-        }
+        drawGrassTile(px, py, x, y, terrain, p);
       }
-      if (terrain === 'tree') { drawTreeTrunk(px + 4, py - 8); drawTreeCanopy(px + 4, py - 8, hash(x, y, 165) * 900); }
+      if (terrain === 'tree') drawTree(px + 4, py - 8, x, y);
       const shore = (x === L.pond.left - 1 || x === L.pond.right + 1) && y >= L.pond.top && y <= L.pond.bottom ||
         (y === L.pond.top - 1 || y === L.pond.bottom + 1) && x >= L.pond.left && x <= L.pond.right;
-      if (shore) {
-        box(px + 28, py + 7, 15, 34, WORLD_COLORS.sand);
-        box(px + 40, py + 7, 3, 34, WORLD_COLORS.sandDark);
-        const reeds = 3 + Math.floor(hash(x, y, 160) * 3);
-        for (let i = 0; i < reeds; i++) {
-          const rx = px + 25 + i * 4;
-          pixelLine(rx, py + 40, rx + (i % 2 ? 2 : -2), py + 15 + i % 3 * 3, WORLD_COLORS.leafGreen, 1.2);
-          box(rx - 2 + (i % 2 ? 2 : -2), py + 12 + i % 3 * 3, 4, 6, WORLD_COLORS.autumnLeafLight);
-        }
-      }
+      if (shore) drawShoreTile(px, py, x, y, L.pond);
     }
     // 村口道路向画面南侧继续，村牌仅作装饰。
     box(L.gate.x * TILE + 5, L.gate.y * TILE, TILE - 10, TILE, WORLD_COLORS.path);
@@ -1415,9 +1483,12 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     for (let cloud = 0; cloud < 3; cloud++) {
       const cloudX = (((now + cloud * 2700) % 10500) / 10500) * (WORLD_WIDTH + 280) - 190;
       const cloudY = 170 + cloud * 155;
-      ctx.fillStyle = WORLD_COLORS.cloudShadow;
       if (cloudX + 220 >= camera.x && cloudX - 90 <= camera.x + SCENE_WIDTH && cloudY + 30 >= camera.y && cloudY - 30 <= camera.y + SCENE_HEIGHT)
-        for (let puff = 0; puff < 4; puff++) { ctx.beginPath(); ctx.ellipse(cloudX + puff * 38, cloudY + (puff % 2) * 8, 74 - puff * 5, 19, -0.12, 0, Math.PI * 2); ctx.fill(); }
+        for (let puff = 0; puff < 4; puff++) {
+          const width = 110 - puff * 8, puffX = cloudX + puff * 38, puffY = cloudY + (puff % 2) * 8;
+          box(puffX - width / 2 + 8, puffY - 16, width - 16, 32, WORLD_COLORS.cloudShadow);
+          box(puffX - width / 2, puffY - 9, width, 18, WORLD_COLORS.cloudShadow);
+        }
     }
     const season = F.season(state);
     if (season !== '冬') for (let i = 0; i < 2; i++) {
@@ -1433,33 +1504,52 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     }
   }
 
-  function drawTreeTrunk(x, y) {
+  function drawTreeTrunk(x, y, narrow = false) {
     shadow(x + 21, y + 55, 22, 6);
     box(x + 11, y + 52, 22, 7, WORLD_COLORS.rootSoil);
-    box(x + 15, y + 20, 9, 38, WORLD_COLORS.bark);
-    box(x + 16, y + 27, 3, 25, WORLD_COLORS.barkLight); box(x + 22, y + 34, 3, 19, WORLD_COLORS.barkDark);
-    box(x + 8, y + 26, 24, 4, WORLD_COLORS.bark);
+    box(x + (narrow ? 17 : 15), y + 20, narrow ? 7 : 10, 38, WORLD_COLORS.bark);
+    box(x + 16, y + 27, 3, 25, WORLD_COLORS.barkLight); box(x + 23, y + 34, 3, 19, WORLD_COLORS.barkDark);
+    if (!narrow) box(x + 8, y + 26, 24, 4, WORLD_COLORS.bark);
+    for (let i = 0; i < 3; i++) box(x + 18 + i % 2 * 4, y + 31 + i * 8, 2, 5, i % 2 ? WORLD_COLORS.barkDark : WORLD_COLORS.barkLight);
     pixelLine(x + 14, y + 55, x + 8, y + 59, WORLD_COLORS.barkDark); pixelLine(x + 24, y + 54, x + 31, y + 59, WORLD_COLORS.barkDark);
   }
 
-  function drawTreeCanopy(x, y, now) {
+  function treeColors() {
     const season = F.season(state);
-    const sway = Math.round(Math.sin(now / 840 + x * 0.21) * 1);
-    if (season === '冬') {
-      box(x + 3 + sway, y + 24, 15, 3, '#eef5ec');
-      box(x + 23 + sway, y + 20, 15, 3, '#eef5ec');
-    } else {
-      const color = { '春': '#e7a5b1', '夏': '#5e9d58', '秋': '#dfbd62' }[season];
-      const dark = { '春': '#b98099', '夏': '#397749', '秋': '#aa8748' }[season];
-      const mid = { '春': WORLD_COLORS.springMid, '夏': WORLD_COLORS.summerMid, '秋': WORLD_COLORS.autumnMid }[season];
-      const light = { '春': WORLD_COLORS.springTop, '夏': WORLD_COLORS.summerTop, '秋': WORLD_COLORS.autumnTop }[season];
-      box(x + 4 + sway, y + 8, 32, 28, dark);
-      box(x + 11 + sway, y, 19, 40, dark);
-      box(x + 7 + sway, y + 5, 22, 15, mid);
-      box(x + 17 + sway, y + 18, 19, 12, color);
-      box(x + 4 + sway, y + 22, 14, 10, color);
-      box(x + 11 + sway, y + 4, 8, 5, light); box(x + 24 + sway, y + 15, 8, 5, light);
+    if (season === '冬') return [WORLD_COLORS.stoneDark, WORLD_COLORS.frostShade, WORLD_COLORS.frost, WORLD_COLORS.whiteFlash];
+    return {
+      '春': [WORLD_COLORS.leafDeep, WORLD_COLORS.leafGreen, WORLD_COLORS.leafLight, WORLD_COLORS.springFlowerLight],
+      '夏': [WORLD_COLORS.leafDeep, WORLD_COLORS.summerMid, WORLD_COLORS.summerTop, WORLD_COLORS.leafSun],
+      '秋': [WORLD_COLORS.woodDark, WORLD_COLORS.autumnLeaf, WORLD_COLORS.autumnMid, WORLD_COLORS.autumnTop]
+    }[season];
+  }
+
+  function drawTree(x, y, gridX, gridY) {
+    const pine = hash(gridX, gridY, 165) < 0.35;
+    const colors = treeColors();
+    drawTreeTrunk(x, y, pine);
+    if (pine) {
+      for (let tier = 0; tier < 4; tier++) {
+        const width = 17 + tier * 7, left = x + 21 - Math.floor(width / 2) + (tier % 2 ? 2 : -1), top = y - 3 + tier * 10;
+        box(left + 5, top, width - 10, 6, colors[2]);
+        box(left + 2, top + 5, width - 4, 7, colors[1]);
+        box(left, top + 10, width, 5, colors[0]);
+        box(left + 4, top + 9, 6, 2, colors[3]);
+        box(left + width - 9, top + 12, 5, 2, colors[1]);
+      }
+      return;
     }
+    const clusters = [[5, 10, 18, 16], [17, 1, 19, 18], [27, 12, 16, 18], [10, 23, 18, 14], [24, 26, 15, 11]];
+    clusters.forEach((cluster, i) => {
+      const [dx, dy, width, height] = cluster;
+      box(x + dx, y + dy, width, height, colors[i % 2]);
+      box(x + dx + 3, y + dy - 3, width - 7, 6, colors[2]);
+      box(x + dx + width - 6, y + dy + 5, 5, height - 7, colors[0]);
+      if (i < 3) box(x + dx + 4, y + dy + 2, 5, 3, colors[3]);
+    });
+    // 少量透光缺口打断圆球轮廓，位置由格坐标稳定决定。
+    const gap = Math.floor(hash(gridX, gridY, 168) * 3);
+    box(x + 13 + gap * 8, y + 20 + gap * 3, 4, 4, palette[F.season(state)].grass);
   }
 
   function drawPondRipples(now, visible) {
@@ -1469,8 +1559,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       const py = (L.top + 1 + i % 2) * TILE;
       const age = (now + i * 400) % 1200 / 1200;
       ctx.globalAlpha = 1 - age;
-      ctx.beginPath(); ctx.ellipse(px, py, 3 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2);
-      ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
+      const width = 5 + Math.floor(age * 17), half = Math.floor(width / 2);
+      pixelLine(px - half, py, px - 3, py, WORLD_COLORS.waterGlint);
+      pixelLine(px + 3, py, px + half, py, WORLD_COLORS.waterGlint);
+      if (width > 12) { pixelLine(px - half + 3, py - 2, px - 1, py - 2, WORLD_COLORS.waterLight); pixelLine(px + 1, py - 2, px + half - 3, py - 2, WORLD_COLORS.waterLight); }
     }
     for (let y = Math.max(L.top, visible.top); y <= Math.min(L.bottom, visible.bottom); y++) for (let x = Math.max(L.left, visible.left); x <= Math.min(L.right, visible.right); x++) if (hash(x, y, 170) > 0.28) {
       const phase = (Math.sin(now / 720 + hash(x, y, 171) * 8) + 1) / 2;
@@ -1488,19 +1580,22 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       const x = node.x * TILE, y = node.y * TILE;
       if (node.kind === 'tree') {
         if (status.charges) {
-          box(x + 12, y + 37, 18, 5, '#8a6040'); box(x + 18, y + 32, 18, 5, '#a5794f');
-        } else { box(x + 14, y + 33, 21, 10, '#8a6040'); box(x + 18, y + 32, 13, 3, '#c79a62'); ctx.beginPath(); ctx.ellipse(x + 24, y + 35, 5, 2, 0, 0, Math.PI * 2); ctx.strokeStyle = WORLD_COLORS.woodGrain; ctx.stroke(); }
+          box(x + 12, y + 37, 18, 5, WORLD_COLORS.stump); box(x + 18, y + 32, 18, 5, WORLD_COLORS.barkLight);
+          box(x + 14, y + 36, 14, 2, WORLD_COLORS.woodLight); box(x + 28, y + 31, 7, 2, WORLD_COLORS.woodLight);
+        } else { box(x + 14, y + 33, 21, 10, WORLD_COLORS.stump); box(x + 18, y + 32, 13, 3, WORLD_COLORS.stumpLight); box(x + 19, y + 34, 11, 2, WORLD_COLORS.woodGrain); box(x + 23, y + 36, 5, 2, WORLD_COLORS.barkDark); }
       } else if (node.kind === 'berry') {
-        pixelLine(x + 13, y + 40, x + 25, y + 18, '#654b35', 3); pixelLine(x + 34, y + 40, x + 25, y + 18, '#654b35', 3);
-        if (status.charges) { box(x + 9, y + 19, 31, 22, '#4f874f'); box(x + 15, y + 13, 21, 27, '#6aa45d'); box(x + 12, y + 16, 9, 8, WORLD_COLORS.leafLight); box(x + 28, y + 18, 9, 7, WORLD_COLORS.leafGreen); }
-        for (let i = 0; i < status.charges; i++) { ctx.fillStyle = '#c94646'; ctx.beginPath(); ctx.arc(x + 19 + i * 11, y + 24 + i * 5, 3, 0, Math.PI * 2); ctx.fill(); }
+        pixelLine(x + 13, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3); pixelLine(x + 34, y + 40, x + 25, y + 18, WORLD_COLORS.woodDark, 3);
+        if (status.charges) { box(x + 9, y + 20, 31, 21, WORLD_COLORS.leafDeep); box(x + 13, y + 16, 24, 22, WORLD_COLORS.leafGreen); box(x + 12, y + 16, 9, 8, WORLD_COLORS.leafLight); box(x + 28, y + 18, 9, 7, WORLD_COLORS.leafMid); }
+        for (let i = 0; i < status.charges; i++) { box(x + 17 + i * 11, y + 22 + i * 5, 6, 6, WORLD_COLORS.berry); box(x + 18 + i * 11, y + 22 + i * 5, 3, 2, WORLD_COLORS.springFlowerLight); }
       } else if (node.kind === 'stone') {
-        if (status.charges) { box(x + 8, y + 24, 33, 17, '#7f8985'); box(x + 14, y + 18, 21, 8, '#aab1aa'); box(x + 16, y + 20, 13, 3, WORLD_COLORS.whiteFlash); }
-        else { box(x + 11, y + 37, 9, 4, '#838b86'); box(x + 27, y + 34, 12, 6, '#9aa19c'); }
+        if (status.charges) { box(x + 8, y + 25, 33, 16, WORLD_COLORS.stoneDark); box(x + 12, y + 20, 25, 16, WORLD_COLORS.stoneMid); box(x + 16, y + 18, 17, 8, WORLD_COLORS.stoneLight); box(x + 17, y + 19, 12, 3, WORLD_COLORS.whiteFlash); }
+        else { box(x + 11, y + 37, 9, 4, WORLD_COLORS.stoneDark); box(x + 27, y + 34, 12, 6, WORLD_COLORS.stoneMid); box(x + 29, y + 34, 7, 2, WORLD_COLORS.stoneLight); }
       } else {
         const age = now % 1100 / 1100; ctx.globalAlpha = status.charges ? 0.85 : 0.2;
-        ctx.beginPath(); ctx.ellipse(x + 24, y + 25, 5 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2); ctx.strokeStyle = '#e7f4e4'; ctx.stroke();
-        if (status.charges) { box(x + 22, y + 18, 4, 8, '#f4eee2'); box(x + 22, y + 17, 4, 4, '#d94e49'); }
+        const width = 6 + Math.floor(age * 16);
+        pixelLine(x + 24 - width, y + 25, x + 20, y + 25, WORLD_COLORS.waterGlint);
+        pixelLine(x + 28, y + 25, x + 24 + width, y + 25, WORLD_COLORS.waterGlint);
+        if (status.charges) { box(x + 22, y + 18, 4, 8, WORLD_COLORS.springFlowerLight); box(x + 22, y + 17, 4, 4, WORLD_COLORS.berry); }
         ctx.globalAlpha = 1;
       }
     }
@@ -1508,21 +1603,60 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function drawHouseCell(cell, name, roof = WORLD_COLORS.roofHome, prop = 'flowers') {
     const x = cell.x * TILE, y = cell.y * TILE;
-    shadow(x + 24, y + 43, 23, 5);
-    box(x + 4, y + 15, 40, 29, WORLD_COLORS.wall);
-    for (let i = 0; i < 5; i++) pixelLine(x + 7 + i * 8, y + 17, x + 7 + i * 8, y + 42, WORLD_COLORS.wallShade, 0.5);
-    box(x + 1, y + 10, 46, 10, WORLD_COLORS.barkDark);
-    box(x + 7, y + 5, 34, 9, roof);
-    for (let i = 0; i < 4; i++) pixelLine(x + 8, y + 7 + i * 2, x + 40, y + 7 + i * 2, i % 2 ? WORLD_COLORS.roofRidge : WORLD_COLORS.barkDark, 0.5);
-    box(x + 8, y + 4, 32, 2, WORLD_COLORS.roofRidge);
-    box(x + 17, y + 27, 14, 17, WORLD_COLORS.door); box(x + 28, y + 34, 2, 2, WORLD_COLORS.metal);
-    box(x + 6, y + 24, 10, 10, WORLD_COLORS.woodDark); box(x + 8, y + 26, 6, 6, WORLD_COLORS.window); box(x + 9, y + 27, 2, 2, WORLD_COLORS.windowGlow);
-    box(x + 14, y + 43, 21, 4, WORLD_COLORS.plazaEdge);
-    if (prop === 'jar') { box(x + 35, y + 34, 8, 10, WORLD_COLORS.roofBlue); box(x + 36, y + 32, 6, 3, WORLD_COLORS.waterLight); }
-    else if (prop === 'wood') { box(x + 34, y + 37, 11, 4, WORLD_COLORS.barkDark); box(x + 36, y + 33, 9, 4, WORLD_COLORS.barkLight); }
-    else if (prop === 'pot') { box(x + 36, y + 38, 8, 6, WORLD_COLORS.roofRed); box(x + 38, y + 33, 2, 6, WORLD_COLORS.leafGreen); box(x + 41, y + 32, 3, 4, WORLD_COLORS.springFlower); }
-    else { box(x + 36, y + 39, 3, 3, WORLD_COLORS.springFlower); box(x + 41, y + 37, 3, 3, WORLD_COLORS.summerFlower); }
-    label(name, x + 5, y + 3, WORLD_COLORS.woodDark, 10);
+    const left = x - 5, top = y - 13;
+    shadow(x + 27, y + 43, 29, 5);
+    // 石基与灰泥立面均向上、左右的非交互住宅空地外扩，门前格保持完全可读。
+    box(left + 5, y + 36, 53, 8, WORLD_COLORS.plazaEdge);
+    for (let i = 0; i < 6; i++) {
+      const sx = left + 6 + i * 8 + i % 2 * 2;
+      box(sx, y + 37 + i % 2 * 3, 7, 4, i % 3 ? WORLD_COLORS.wallShade : WORLD_COLORS.plazaLight);
+      box(sx + 1, y + 37 + i % 2 * 3, 5, 1, WORLD_COLORS.plazaLight);
+    }
+    box(left + 4, y + 9, 54, 29, WORLD_COLORS.wallShade);
+    box(left + 7, y + 8, 48, 28, WORLD_COLORS.wall);
+    box(left + 8, y + 10, 3, 25, WORLD_COLORS.wallShade);
+    // 深木骨架与右下接触暗边强化3/4体积。
+    box(left + 7, y + 9, 48, 3, WORLD_COLORS.woodDark);
+    box(left + 9, y + 12, 3, 24, WORLD_COLORS.wood);
+    box(left + 50, y + 12, 3, 24, WORLD_COLORS.barkDark);
+    box(left + 11, y + 25, 39, 3, WORLD_COLORS.wood);
+    // 阶梯坡顶与错缝小瓦，暖红主色在不同小屋中保留色相区分。
+    box(left, top + 12, 62, 7, WORLD_COLORS.roofShade);
+    box(left + 4, top + 7, 54, 9, WORLD_COLORS.roofMid);
+    box(left + 9, top + 3, 44, 9, roof);
+    box(left + 15, top, 32, 6, WORLD_COLORS.roofLight);
+    box(left + 17, top - 2, 29, 3, WORLD_COLORS.roofRidge);
+    for (let row = 0; row < 4; row++) for (let tile = 0; tile < 7; tile++) {
+      const tx = left + 5 + tile * 8 + (row % 2) * 4;
+      const ty = top + 5 + row * 3;
+      if (tx > left + 56 - row * 2) continue;
+      box(tx, ty, 5, 2, (tile + row) % 3 ? roof : WORLD_COLORS.roofLight);
+      box(tx + 4, ty + 1, 2, 2, WORLD_COLORS.roofShade);
+    }
+    // 烟囱只保留像素石块，烟雾继续使用既有动态粒子队列。
+    box(left + 45, top - 8, 7, 13, WORLD_COLORS.plazaEdge);
+    box(left + 46, top - 7, 5, 4, WORLD_COLORS.wallShade);
+    box(left + 44, top - 10, 9, 3, WORLD_COLORS.woodDark);
+    // 门、暖窗、花箱与灯笼均在立面内，不占用门前操作格。
+    box(left + 23, y + 18, 16, 20, WORLD_COLORS.woodDark);
+    box(left + 26, y + 20, 11, 18, WORLD_COLORS.door);
+    box(left + 34, y + 29, 2, 2, WORLD_COLORS.metal);
+    box(left + 12, y + 17, 10, 11, WORLD_COLORS.woodDark);
+    box(left + 14, y + 19, 6, 7, WORLD_COLORS.window);
+    box(left + 16, y + 19, 2, 7, WORLD_COLORS.windowGlow);
+    box(left + 14, y + 22, 6, 2, WORLD_COLORS.woodDark);
+    box(left + 11, y + 28, 13, 4, WORLD_COLORS.wood);
+    box(left + 13, y + 26, 2, 3, WORLD_COLORS.springFlower);
+    box(left + 18, y + 25, 2, 4, WORLD_COLORS.summerFlower);
+    box(left + 42, y + 19, 4, 8, WORLD_COLORS.woodDark);
+    box(left + 43, y + 21, 3, 4, WORLD_COLORS.windowGlow);
+    box(left + 21, y + 40, 22, 4, WORLD_COLORS.plazaEdge);
+    box(left + 24, y + 39, 16, 2, WORLD_COLORS.plazaLight);
+    if (prop === 'jar') { box(left + 48, y + 29, 8, 11, WORLD_COLORS.roofBlue); box(left + 49, y + 27, 6, 3, WORLD_COLORS.waterLight); box(left + 50, y + 32, 4, 2, WORLD_COLORS.roofRidge); }
+    else if (prop === 'wood') { box(left + 45, y + 34, 12, 5, WORLD_COLORS.barkDark); box(left + 47, y + 30, 9, 5, WORLD_COLORS.barkLight); pixelLine(left + 47, y + 34, left + 55, y + 31, WORLD_COLORS.woodLight); }
+    else if (prop === 'pot') { box(left + 48, y + 34, 8, 6, WORLD_COLORS.roofRed); box(left + 50, y + 29, 2, 6, WORLD_COLORS.leafGreen); box(left + 53, y + 28, 3, 4, WORLD_COLORS.springFlower); }
+    else { box(left + 48, y + 35, 8, 5, WORLD_COLORS.wood); box(left + 49, y + 32, 2, 3, WORLD_COLORS.springFlower); box(left + 53, y + 31, 2, 4, WORLD_COLORS.summerFlower); }
+    label(name, left + 24, y + 16, WORLD_COLORS.woodDark, 8);
   }
 
   function drawHouses() {
@@ -1536,26 +1670,53 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     box(x + 12, y + 13, 24, 20, WORLD_COLORS.plazaEdge);
     box(x + 18, y + 18, 12, 8, WORLD_COLORS.plazaLight);
     const farm = F.LAYOUT.farm;
-    for (let px = farm.left; px <= farm.right; px += 3) { box(px * TILE + 21, farm.top * TILE - 9, 5, 14, WORLD_COLORS.wood); box(px * TILE + 22, farm.top * TILE - 8, 2, 11, WORLD_COLORS.woodLight); }
+    const fenceY = farm.top * TILE - 12;
+    for (let px = farm.left; px <= farm.right; px += 3) {
+      const fenceX = px * TILE + 21;
+      box(fenceX + 3, fenceY + 12, 132, 4, WORLD_COLORS.shadow);
+      box(fenceX, fenceY + 4, 132, 6, WORLD_COLORS.woodDark);
+      box(fenceX + 1, fenceY + 2, 130, 5, WORLD_COLORS.wood);
+      box(fenceX + 12, fenceY + 3, 20, 2, WORLD_COLORS.woodLight);
+      box(fenceX, fenceY - 1, 7, 18, WORLD_COLORS.woodDark);
+      box(fenceX + 1, fenceY - 3, 5, 18, WORLD_COLORS.wood);
+      box(fenceX + 2, fenceY - 3, 3, 2, WORLD_COLORS.woodLight);
+    }
   }
 
   function drawPlot(plot, x, y) {
     if (!plot.tilled && !plot.structure) return;
     const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
     if (plot.structure) {
-      if (plot.structure === 'fence') { box(px + 5, py + 16, 38, 8, '#8a6040'); box(px + 9, py + 7, 6, 34, '#c99b70'); box(px + 32, py + 7, 6, 34, '#c99b70'); }
+      if (plot.structure === 'fence') {
+        shadow(px + 25, py + 38, 20, 4);
+        box(px + 5, py + 17, 38, 7, WORLD_COLORS.woodDark); box(px + 6, py + 14, 36, 6, WORLD_COLORS.wood);
+        box(px + 6, py + 28, 36, 6, WORLD_COLORS.woodDark); box(px + 7, py + 26, 34, 5, WORLD_COLORS.wood);
+        for (const post of [9, 32]) { box(px + post, py + 7, 7, 34, WORLD_COLORS.woodDark); box(px + post + 1, py + 5, 5, 34, WORLD_COLORS.wood); box(px + post + 2, py + 5, 3, 2, WORLD_COLORS.woodLight); }
+        box(px + 20, py + 16, 7, 2, WORLD_COLORS.woodLight); box(px + 28, py + 28, 6, 2, WORLD_COLORS.woodGrain);
+      }
       else { box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373'); }
       return;
     }
-    box(px + 2, py + 4, 44, 41, plot.crop ? WORLD_COLORS.soilPlanted : WORLD_COLORS.soil);
-    box(px + 4, py + 5, 39, 3, WORLD_COLORS.furrowLight);
-    for (const row of [14, 23, 32]) {
-      pixelLine(px + 6, py + row, px + 42, py + row, WORLD_COLORS.furrow, 1.2);
-      pixelLine(px + 8, py + row + 2, px + 39, py + row + 2, WORLD_COLORS.furrowLight, 0.7);
+    box(px + 3, py + 4, 42, 41, plot.crop ? WORLD_COLORS.soilPlanted : WORLD_COLORS.soil);
+    box(px + 5, py + 3, 36, 3, WORLD_COLORS.furrowLight);
+    box(px + 2, py + 8, 3, 31, WORLD_COLORS.furrow);
+    box(px + 43, py + 11, 3, 29, WORLD_COLORS.furrow);
+    const rows = [13, 23, 33];
+    rows.forEach((row, i) => {
+      const stagger = Math.floor(hash(x, y, 66 + i) * 4) - 1;
+      box(px + 6 + stagger, py + row, 36 - stagger, 3, WORLD_COLORS.furrow);
+      box(px + 9 - stagger, py + row + 3, 29 + stagger, 2, WORLD_COLORS.furrowLight);
+      box(px + 7 + (i % 2) * 5, py + row - 2, 8, 2, WORLD_COLORS.soilSpeck);
+    });
+    for (let i = 0; i < 10; i++) {
+      const dx = 7 + Math.floor(hash(x, y, 70 + i) * 33), dy = 8 + Math.floor(hash(x, y, 84 + i) * 32);
+      const color = i % 3 === 0 ? WORLD_COLORS.furrow : i % 3 === 1 ? WORLD_COLORS.soilSpeck : WORLD_COLORS.furrowLight;
+      box(px + dx, py + dy, 2 + i % 3, 1 + (i + 1) % 2, color);
     }
-    for (let i = 0; i < 4; i++) {
-      const dx = 8 + Math.floor(hash(x, y, 70 + i) * 31), dy = 9 + Math.floor(hash(x, y, 80 + i) * 30);
-      box(px + dx, py + dy, 4, 2, WORLD_COLORS.soilSpeck);
+    for (let i = 0; i < 2; i++) {
+      const dx = 11 + Math.floor(hash(x, y, 98 + i) * 23), dy = 10 + Math.floor(hash(x, y, 102 + i) * 24);
+      box(px + dx, py + dy, 6, 3, WORLD_COLORS.furrow);
+      box(px + dx + 1, py + dy, 3, 1, WORLD_COLORS.soilSpeck);
     }
     if (F.season(state) === '冬') {
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
@@ -1573,13 +1734,17 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const progress = crop.progress;
     const mature = progress >= F.CROPS[crop.type].days;
     const offset = mature && Math.floor(now / 800) % 2 ? -1 : 0;
-    px += Math.sin(now / 600 + hash(px / TILE, py / TILE, 180) * 7) * (mature ? 2 : 1);
+    const gridX = Math.floor(px / TILE), gridY = Math.floor(py / TILE);
+    const stableOffset = Math.floor(hash(gridX, gridY, 181) * 5) - 2;
+    px += stableOffset + Math.round(Math.sin(now / 600 + hash(gridX, gridY, 180) * 7) * (mature ? 1 : 0.5));
     py += offset;
     const center = px + 24;
     const paint = (x, y, w, h, color) => { target.fillStyle = color; target.fillRect(Math.round(x), Math.round(y), w, h); };
     const line = (x1, y1, x2, y2, color) => {
-      target.beginPath(); target.moveTo(x1, y1); target.lineTo(x2, y2);
-      target.strokeStyle = color; target.lineWidth = 0.5; target.lineCap = 'round'; target.stroke();
+      const dx = x2 - x1, dy = y2 - y1, steps = Math.max(Math.abs(dx), Math.abs(dy));
+      target.fillStyle = color;
+      if (!steps) { target.fillRect(Math.round(x1), Math.round(y1), 1, 1); return; }
+      for (let i = 0; i <= steps; i++) target.fillRect(Math.round(x1 + dx * i / steps), Math.round(y1 + dy * i / steps), 1, 1);
     };
     if (progress === 0) {
       paint(center - 6, py + 27, 12, 6, '#a77b53');
@@ -1714,9 +1879,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     box(x + 9, y + 35 + feet, 10, 4, WORLD_COLORS.shoes);
     box(x + 22, y + 35 - feet, 10, 4, WORLD_COLORS.shoes);
     box(x + 8, y + 20, 25, 13, facing === 'up' ? WORLD_COLORS.shirt : WORLD_COLORS.denim);
+    box(x + 8, y + 30, 25, 3, WORLD_COLORS.denimDark);
     box(x + 11, y + 22, 18, 2, WORLD_COLORS.denimLight);
     pixelLine(x + 12, y + 26.5, x + 16, y + 31, WORLD_COLORS.denimDark);
-    pixelLine(x + 26, y + 24, x + 28, y + 30.5, '#9bc2c6');
+    pixelLine(x + 26, y + 24, x + 28, y + 30.5, WORLD_COLORS.waterLight);
     const arms = { up: [7, 30], down: [5, 32], left: [6, 31], right: [6, 31] }[facing];
     box(x + arms[0], y + 22 + feet, 5, 10, WORLD_COLORS.skinLight);
     if (facing === 'up' || facing === 'down') box(x + arms[1], y + 22 - feet, 5, 10, WORLD_COLORS.skinLight);
@@ -1732,19 +1898,19 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     box(x + 10, y + 7, 22, 6, WORLD_COLORS.hatBand);
     box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, WORLD_COLORS.hatBrim);
     box(x + 12, y, 18, 7, WORLD_COLORS.hat);
-    box(x + 16, y + 2, 11, 1, '#e4c989');
-    for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 1.5, x + 16 + i * 3, y + 5.5, '#efd79a', 0.5);
+    box(x + 16, y + 2, 11, 1, WORLD_COLORS.woodLight);
+    for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 2, x + 16 + i * 3, y + 6, WORLD_COLORS.roofRidge);
     if (facing !== 'up') {
-      if (facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
-      else if (facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
+      if (facing === 'left') box(x + 13, y + 16, 3, 3, WORLD_COLORS.ink);
+      else if (facing === 'right') box(x + 27, y + 16, 3, 3, WORLD_COLORS.ink);
       else {
         box(x + 16, y + 15, 3, 3, WORLD_COLORS.ink);
         box(x + 25, y + 15, 3, 3, WORLD_COLORS.ink);
-        box(x + 20, y + 20, 3, 1, '#b97761');
+        box(x + 20, y + 20, 3, 1, WORLD_COLORS.roofRed);
       }
-      const eyeX = facing === 'left' ? x + 13.5 : facing === 'right' ? x + 27.5 : x + 16.5;
-      ctx.fillStyle = '#fff7de'; ctx.fillRect(eyeX, y + 15.5, 0.5, 0.5);
-      if (facing === 'down') ctx.fillRect(x + 25.5, y + 15.5, 0.5, 0.5);
+      const eyeX = facing === 'left' ? x + 13 : facing === 'right' ? x + 29 : x + 16;
+      box(eyeX, y + 15, 1, 1, WORLD_COLORS.windowGlow);
+      if (facing === 'down') box(x + 27, y + 15, 1, 1, WORLD_COLORS.windowGlow);
     }
     if (now >= swingUntil) {
       const tx = facing === 'left' ? x + 1 : x + 37;
@@ -1778,7 +1944,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const short = id === 'hunter' ? 3 : 0;
     shadow(x + 24, baseY + 40, 13, 4);
     box(x + 16, y + 19 + short, 16, 20 - short, { mayor: WORLD_COLORS.hutBlue, merchant: WORLD_COLORS.hutRed, hunter: WORLD_COLORS.hutGreen }[id]);
+    box(x + 18, y + 21 + short, 4, 15 - short, WORLD_COLORS.shadow);
+    box(x + 23, y + 20 + short, 7, 2, WORLD_COLORS.wall);
     box(x + 19, y + 9 + short, 11, 12, WORLD_COLORS.skin);
+    box(x + 20, y + 11 + short, 3, 2, WORLD_COLORS.skinLight);
     if (id === 'mayor') {
       box(x + 16, y + 4, 17, 4, WORLD_COLORS.ink); box(x + 19, y, 11, 6, WORLD_COLORS.hutBlue);
       box(x + 18, y + 17, 13, 8, WORLD_COLORS.beard); box(x + 20, y + 23, 9, 4, WORLD_COLORS.beard);
@@ -1881,7 +2050,11 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       } else if (particle.kind === 'snow') box(particle.x, particle.y, 3, 3, particle.color);
       else if (particle.kind === 'splash') { box(particle.x - 2, particle.y, 2, 2, particle.color); box(particle.x + 2, particle.y, 2, 2, particle.color); }
       else if (particle.kind === 'leaf') { ctx.save(); ctx.translate(particle.x, particle.y); ctx.rotate(particle.age / 80); box(-3, -1, 6, 3, particle.color); ctx.restore(); }
-      else if (particle.kind === 'dust') { ctx.beginPath(); ctx.arc(particle.x, particle.y, 2 + particle.age / particle.life * 3, 0, Math.PI * 2); ctx.fillStyle = particle.color; ctx.fill(); }
+      else if (particle.kind === 'dust') {
+        const size = 2 + Math.floor(particle.age / particle.life * 3);
+        box(particle.x - size, particle.y - Math.floor(size / 2), size * 2, size, particle.color);
+        box(particle.x - Math.floor(size / 2), particle.y - size, size, size * 2, particle.color);
+      }
       else box(particle.x, particle.y, particle.kind === 'smoke' ? 8 : 4, particle.kind === 'smoke' ? 6 : 4, particle.color);
     }
     ctx.globalAlpha = 1;
@@ -1999,7 +2172,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     }
     if (now - lastSpark >= 900) {
       const mature = [];
-      for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+      const sparkleVisible = F.visibleCellRange(camera, SCENE_WIDTH, SCENE_HEIGHT, TILE, 1);
+      for (let y = sparkleVisible.top; y <= sparkleVisible.bottom; y++) for (let x = sparkleVisible.left; x <= sparkleVisible.right; x++) {
         const crop = state.plots[y][x].crop;
         if (crop && crop.progress >= F.CROPS[crop.type].days) mature.push([x, y]);
       }
