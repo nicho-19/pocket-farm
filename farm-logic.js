@@ -17,13 +17,24 @@
     hoe: { name: '锄头' },
     seed: { name: '种子' },
     scythe: { name: '镰刀' },
+    gather: { name: '采集' },
+    rod: { name: '鱼竿' },
     build: { name: '建造' }
   };
   const DIRECTIONS = {
     up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0]
   };
   const BUILDINGS = { scarecrow: { name: '稻草人', price: 150 }, fence: { name: '木栅栏', price: 40 } };
-  const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20 };
+  const RESOURCES = {
+    wood: { name: '木材', sellPrice: 6 }, stone: { name: '石头', sellPrice: 8 },
+    fish: { name: '池鱼', sellPrice: 35 }, berry: { name: '野果', sellPrice: 12 }
+  };
+  const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20, fish: 12, berry: 5 };
+  const CRAFTS = {
+    fence: { name: '木栅栏', costs: { wood: 2 }, stock: 'fenceStock' },
+    scarecrow: { name: '稻草人', costs: { wood: 5, stone: 2 }, stock: 'scarecrowStock' },
+    snack: { name: '野果饭团', costs: { berry: 2 }, stock: 'snacks' }
+  };
   const WEAPONS = { none: { name: '徒手', price: 0, damage: 0, counter: 0 }, club: { name: '木棍', price: 100, damage: 1, counter: 0.30 }, axe: { name: '石斧', price: 300, damage: 2, counter: 0.55 }, sword: { name: '铁剑', price: 800, damage: 3, counter: 0.80 } };
   const LAYOUT = {
     home: { x: 1, y: 1 }, homeDoor: { x: 1, y: 2 },
@@ -35,6 +46,14 @@
     gate: { x: 10, y: 13 }, raidSpawns: [{ x: 9, y: 3 }, { x: 13, y: 3 }, { x: 18, y: 3 }]
   };
   const VILLAGERS = { mayor: { name: '村长', points: [[2, 2], [2, 3], [3, 3]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[4, 2], [4, 3], [3, 3]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 2], [6, 3], [5, 3]], gift: '木栅栏×2' } };
+  const RESOURCE_NODES = [
+    ...[[8, 2], [10, 2], [12, 2], [15, 2], [17, 2], [19, 2]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
+    ...[[9, 2], [16, 2]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
+    ...[[11, 2], [18, 2]].map(([x, y], i) => ({ id: `stone-${i + 1}`, kind: 'stone', x, y, maxCharges: 2 })),
+    ...[[16, 10], [16, 12]].map(([x, y], i) => ({ id: `fish-${i + 1}`, kind: 'fish', x, y, maxCharges: 2 }))
+  ];
+  function resourceNodeAt(x, y) { return RESOURCE_NODES.find(node => node.x === x && node.y === y) || null; }
+  function freshResourceNodes() { return Object.fromEntries(RESOURCE_NODES.map(node => [node.id, { charges: node.maxCharges, respawnDay: 0 }])); }
   function inArea(x, y, area) { return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom; }
   function terrainAt(x, y) {
     if (!inBounds(x, y)) return 'outside';
@@ -70,7 +89,7 @@
 
   function createGame() {
     return {
-      version: 6,
+      version: 7,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -80,16 +99,19 @@
       gameOver: false,
       villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
       fenceStock: 0,
+      scarecrowStock: 0,
       farmer: { x: 5, y: 3, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
       bag: cropCounts(),
+      resources: { wood: 0, stone: 0, fish: 0, berry: 0 },
+      resourceNodes: freshResourceNodes(),
       snacks: 0,
       nightRaid: { level: 'calm', count: 0 },
       orders: [],
       nextOrderId: 1,
-      stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0 },
+      stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0 },
       manualTool: false,
       tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
@@ -100,7 +122,7 @@
     const legacy = saved?.version <= 5 && Array.isArray(saved.plots) &&
       saved.plots.length === LAYOUT.oldPlots.height &&
       saved.plots.every(row => Array.isArray(row) && row.length === LAYOUT.oldPlots.width);
-    if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version) ||
+    if (!saved || ![1, 2, 3, 4, 5, 6, 7].includes(saved.version) ||
         !Array.isArray(saved.plots) ||
         !((saved.plots.length === HEIGHT && saved.plots.every(row => Array.isArray(row) && row.length === WIDTH)) || legacy) ||
         !saved.farmer || !(legacy ? saved.farmer.x >= 0 && saved.farmer.x < LAYOUT.oldPlots.width && saved.farmer.y >= 0 && saved.farmer.y < LAYOUT.oldPlots.height : inBounds(saved.farmer.x, saved.farmer.y)) ||
@@ -123,6 +145,15 @@
       return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded }];
     }));
     saved.fenceStock = Number.isInteger(saved.fenceStock) && saved.fenceStock >= 0 ? saved.fenceStock : 0;
+    saved.scarecrowStock = Number.isInteger(saved.scarecrowStock) && saved.scarecrowStock >= 0 ? saved.scarecrowStock : 0;
+    saved.resources = Object.fromEntries(Object.keys(RESOURCES).map(key => [key, Number.isInteger(saved.resources?.[key]) && saved.resources[key] >= 0 ? saved.resources[key] : 0]));
+    saved.resourceNodes = Object.fromEntries(RESOURCE_NODES.map(node => {
+      const old = saved.resourceNodes?.[node.id];
+      return [node.id, {
+        charges: Number.isInteger(old?.charges) ? Math.max(0, Math.min(node.maxCharges, old.charges)) : node.maxCharges,
+        respawnDay: Number.isInteger(old?.respawnDay) && old.respawnDay >= 0 ? old.respawnDay : 0
+      }];
+    }));
     saved.seeds = { ...cropCounts(), ...saved.seeds };
     saved.bag = { ...cropCounts(), ...saved.bag };
     for (const row of saved.plots) {
@@ -153,10 +184,10 @@
     if (saved.nightRaid.attackers) saved.nightRaid.attackers = saved.nightRaid.attackers.map(kind => kind === 'boar' ? 'bandit' : kind);
     saved.orders = Array.isArray(saved.orders) ? saved.orders.filter(order => CROPS[order.crop] && Number.isInteger(order.amount) && order.amount > 0 && Number.isInteger(order.deadline) && Number.isInteger(order.reward)).map(order => ({ ...order, accepted: order.accepted !== false })) : [];
     saved.nextOrderId = Number.isInteger(saved.nextOrderId) ? saved.nextOrderId : 1;
-    saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, ...saved.stats };
+    saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 6;
+    saved.version = 7;
     return saved;
   }
 
@@ -221,11 +252,33 @@
     return result(true, `已选择${CROPS[crop].name}种子`, []);
   }
 
-  function act(state, smart) {
+  function gatherNode(state, node, random = Math.random) {
+    const status = state.resourceNodes[node.id];
+    if (!status.charges) return result(false, `该${node.kind === 'fish' ? '钓点' : '节点'}已采空，明天或刷新日恢复`);
+    if (node.kind === 'fish') {
+      if (random() >= 0.75) return result(false, '鱼咬钩又跑了');
+      state.resources.fish++; status.charges--; state.stats.fished++;
+      if (!status.charges) status.respawnDay = state.day + 1;
+      return { ...result(true, '钓到了1条池鱼'), tool: 'rod', resource: 'fish' };
+    }
+    const key = node.kind === 'tree' ? 'wood' : node.kind;
+    state.resources[key]++; status.charges--; state.stats.gathered++;
+    if (!status.charges) status.respawnDay = state.day + (node.kind === 'stone' ? 3 : 2);
+    return { ...result(true, `采集到了1份${RESOURCES[key].name}`), tool: 'gather', resource: key };
+  }
+
+  function act(state, smart, random = Math.random) {
     const { x, y } = frontCell(state);
     if (!inBounds(x, y)) return result(false, '前方没有地块');
     const plot = state.plots[y][x];
     let tool = state.tool;
+    const node = resourceNodeAt(x, y);
+    if (node) {
+      const required = node.kind === 'fish' ? 'rod' : 'gather';
+      if (smart && !state.manualTool) tool = required;
+      if (tool !== required) return result(false, node.kind === 'fish' ? '请改用鱼竿钓鱼' : '请改用采集工具');
+      return gatherNode(state, node, random);
+    }
     if (smart && !state.manualTool) {
       if (plot.crop && plot.crop.progress >= CROPS[plot.crop.type].days) tool = 'scythe';
       else if (plot.tilled && !plot.crop && state.seeds[state.selectedCrop] > 0) tool = 'seed';
@@ -283,8 +336,9 @@
     if (!['farm', 'residential'].includes(terrainAt(x, y))) return result(false, '这里只能在农田或住宅空地建造');
     if (plot.tilled || plot.crop || plot.structure) return result(false, '只能放在空草地上');
     const price = BUILDINGS[kind].price;
-    const free = kind === 'fence' && state.fenceStock > 0;
-    if (free) state.fenceStock--;
+    const stock = kind === 'fence' ? 'fenceStock' : 'scarecrowStock';
+    const free = state[stock] > 0;
+    if (free) state[stock]--;
     else {
       if (state.gold < price) return result(false, `金币不足，还差 ${price - state.gold} G`);
       state.gold -= price;
@@ -293,14 +347,16 @@
     return result(true, `放置了${BUILDINGS[kind].name}${free ? '，使用库存' : `，花费 ${price} G`}`);
   }
 
-  function giftVillager(state, id, crop) {
-    if (!VILLAGERS[id] || !CROPS[crop]) return result(false, '送礼目标无效');
+  function giftVillager(state, id, item) {
+    const resource = item === 'fish' || item === 'berry';
+    if (!VILLAGERS[id] || (!CROPS[item] && !resource)) return result(false, '送礼目标或礼物无效');
     const villager = state.villagers[id];
     if (villager.giftedDay === state.day) return result(false, '今天已经送过这位村民了');
-    if (state.bag[crop] < 1) return result(false, '背包里没有这份作物');
-    state.bag[crop]--; villager.giftedDay = state.day;
+    if ((resource ? state.resources[item] : state.bag[item]) < 1) return result(false, '背包里没有这份礼物');
+    if (resource) state.resources[item]--; else state.bag[item]--;
+    villager.giftedDay = state.day;
     villager.hearts = Math.min(5, villager.hearts + 1);
-    const events = [`送给${VILLAGERS[id].name}一份${CROPS[crop].name}，好感 ${villager.hearts}/5`];
+    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5`];
     if (villager.hearts === 5 && !villager.rewarded) {
       villager.rewarded = true;
       if (id === 'mayor') state.gold += 100;
@@ -343,6 +399,12 @@
     state.stats.income += total;
     return { ...result(true, `卖出 ${amount} 份${CROPS[crop].name}，获得 ${total} G`), warning };
   }
+  function sellResource(state, key, amount) {
+    if (!RESOURCES[key] || !Number.isInteger(amount) || amount < 1 || state.resources[key] < amount) return result(false, '卖出数量无效');
+    const total = amount * RESOURCES[key].sellPrice;
+    state.resources[key] -= amount; state.gold += total; state.stats.income += total;
+    return result(true, `卖出 ${amount} 份${RESOURCES[key].name}，获得 ${total} G`);
+  }
   function sellAll(state) {
     const { total, count } = salePreview(state);
     if (!count) return result(false, '背包里没有可卖的富余作物');
@@ -371,17 +433,28 @@
 
   function eatFood(state, food) {
     if (!FOOD_HEAL[food]) return result(false, '无效食物');
-    if (!(food === 'snack' ? state.snacks : state.bag[food])) return result(false, '背包里没有这种食物');
+    const resource = food === 'fish' || food === 'berry';
+    if (!(food === 'snack' ? state.snacks : resource ? state.resources[food] : state.bag[food])) return result(false, '背包里没有这种食物');
     if (state.health >= HEALTH_MAX) return result(false, '生命已满，别浪费粮食');
     if (food === 'snack') state.snacks--;
+    else if (resource) state.resources[food]--;
     else state.bag[food]--;
     const restored = Math.min(FOOD_HEAL[food], HEALTH_MAX - state.health);
     state.health += restored;
-    return result(true, `吃${food === 'snack' ? '饭团' : CROPS[food].name}恢复了 ${restored} 点生命`);
+    return result(true, `吃${food === 'snack' ? '饭团' : resource ? RESOURCES[food].name : CROPS[food].name}恢复了 ${restored} 点生命`);
   }
   function quickEat(state) {
-    const food = Object.keys(FOOD_HEAL).filter(key => key === 'snack' ? state.snacks : state.bag[key]).sort((a, b) => FOOD_HEAL[b] - FOOD_HEAL[a])[0];
+    const food = Object.keys(FOOD_HEAL).filter(key => key === 'snack' ? state.snacks : RESOURCES[key] ? state.resources[key] : state.bag[key]).sort((a, b) => FOOD_HEAL[b] - FOOD_HEAL[a])[0];
     return food ? eatFood(state, food) : result(false, '背包里没有食物');
+  }
+
+  function craft(state, key) {
+    const recipe = CRAFTS[key];
+    if (!recipe) return result(false, '无效制作配方');
+    if (Object.entries(recipe.costs).some(([resource, amount]) => state.resources[resource] < amount)) return result(false, '制作资源不足');
+    for (const [resource, amount] of Object.entries(recipe.costs)) state.resources[resource] -= amount;
+    state[recipe.stock]++; state.stats.crafted++;
+    return result(true, `制作了${recipe.name}`);
   }
 
   function generateOrders(state, random) {
@@ -618,6 +691,14 @@
       }
     }
     state.day++;
+    let refreshed = false;
+    for (const node of RESOURCE_NODES) {
+      const status = state.resourceNodes[node.id];
+      if (status.charges < node.maxCharges && status.respawnDay > 0 && state.day >= status.respawnDay) {
+        status.charges = node.maxCharges; status.respawnDay = 0; refreshed = true;
+      }
+    }
+    if (refreshed) events.push('野外资源刷新了');
     const roll = random || Math.random;
     state.weather = state.tomorrow;
     state.tomorrow = roll() < RAIN_CHANCE[season(state)] ? 'rain' : 'sunny';
@@ -632,8 +713,8 @@
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
-    act, buySeed, sellAll, sellCrop, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
+    act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

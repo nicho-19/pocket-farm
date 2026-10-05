@@ -14,8 +14,8 @@ function plant(state, x = 5, y = 4, type = 'carrot', progress = 0) {
 }
 check('无 DOM 加载与初始状态', () => {
   const state = F.createGame();
-  assert.equal(state.gold, 100); assert.equal(state.health, 100); assert.equal(state.version, 6);
-  assert.deepEqual(Object.keys(F.TOOLS).sort(), ['build', 'hoe', 'scythe', 'seed']);
+  assert.equal(state.gold, 100); assert.equal(state.health, 100); assert.equal(state.version, 7);
+  assert.deepEqual(Object.keys(F.TOOLS).sort(), ['build', 'gather', 'hoe', 'rod', 'scythe', 'seed']);
 });
 check('锄地播种及按天生长', () => {
   const s = F.createGame(); assert.equal(F.act(s).ok, true); F.selectTool(s, 'seed'); assert.equal(F.act(s).ok, true);
@@ -32,12 +32,12 @@ check('成熟后镰刀收获并可再次播种', () => {
 check('旧档迁移保住作物进度并忽略湿润字段', () => {
   const s = F.createGame(); s.version = 1; s.tool = 'water'; plant(s, 5, 5, 'potato', 2); s.plots[5][5].watered = false;
   F.migrateSave(s); assert.equal(s.plots[5][5].crop.progress, 2); assert.equal('watered' in s.plots[5][5], false);
-  assert.equal(s.tool, 'hoe'); assert.equal(s.version, 6); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 3);
+  assert.equal(s.tool, 'hoe'); assert.equal(s.version, 7); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 3);
 });
 check('v2 存档补全默认值并保留金币土地', () => {
   const s = F.createGame(); s.version = 2; s.gold = 37; s.plots[2][3].tilled = true;
   for (const key of ['tomorrow', 'snacks', 'upgrades', 'orders', 'nextOrderId', 'stats', 'manualTool']) delete s[key];
-  F.migrateSave(s); assert.equal(s.version, 6); assert.equal(s.gold, 37);
+  F.migrateSave(s); assert.equal(s.version, 7); assert.equal(s.gold, 37);
   assert.equal(s.plots[2][3].tilled, true); assert.equal(s.stats.income, 0);
   assert.equal(s.nightRaid.level, 'calm');
 });
@@ -308,7 +308,7 @@ check('v5 旧图逐格嵌入农田，作物道具与标量完整保留', () => {
   s.plots[4][4].structure = 'scarecrow'; s.weapon = 'axe'; s.villagers.mayor.hearts = 2;
   s.gold = 347; s.health = 62; s.farmer = { x: 11, y: 8, facing: 'left' };
   const migrated = F.migrateSave(s); const anchor = F.LAYOUT.oldPlots;
-  assert.equal(migrated.version, 6);
+  assert.equal(migrated.version, 7);
   assert.equal(migrated.plots[anchor.y + 2][anchor.x + 3].crop.progress, 2);
   assert.equal(migrated.plots[anchor.y + 4][anchor.x + 4].structure, 'scarecrow');
   assert.equal(migrated.weapon, 'axe'); assert.equal(migrated.villagers.mayor.hearts, 2);
@@ -317,16 +317,69 @@ check('v5 旧图逐格嵌入农田，作物道具与标量完整保留', () => {
   assert.equal(migrated.farmer.y, F.LAYOUT.homeDoor.y);
   assert.equal(F.canWalk(migrated, migrated.farmer.x, migrated.farmer.y), true);
 });
-check('v1 至 v5 的 12×9 旧档均可迁移到 v6', () => {
+check('v1 至 v5 的 12×9 旧档均可迁移到 v7', () => {
   for (let version = 1; version <= 5; version++) {
     const s = F.createGame(); s.version = version;
     s.plots = s.plots.slice(0, F.LAYOUT.oldPlots.height).map(row => row.slice(0, F.LAYOUT.oldPlots.width));
     s.plots[8][11].tilled = true; s.orders = [{ id: 4, crop: 'carrot', amount: 2, deadline: 9, reward: 75 }];
     s.nightRaid = { level: 'raid', count: 1, attackers: ['bandit'] };
     const next = F.migrateSave(s);
-    assert.equal(next.version, 6); assert.equal(next.plots[12][15].tilled, true);
+    assert.equal(next.version, 7); assert.equal(next.plots[12][15].tilled, true);
     assert.equal(next.orders[0].id, 4); assert.equal(next.nightRaid.attackers[0], 'bandit');
     assert.equal(F.migrateSave(next).plots[12][15].tilled, true);
   }
+});
+check('v7 初始资源、节点、双库存与统计', () => {
+  const s = F.createGame(); assert.deepEqual(Object.values(s.resources), [0, 0, 0, 0]);
+  assert.equal(Object.keys(s.resourceNodes).length, 12); assert.ok(F.RESOURCE_NODES.every(n => s.resourceNodes[n.id].charges === 2));
+  assert.equal(s.fenceStock, 0); assert.equal(s.scarecrowStock, 0); assert.deepEqual([s.stats.gathered, s.stats.fished, s.stats.crafted], [0, 0, 0]);
+});
+check('三种采集节点、工具判定与智能操作', () => {
+  for (const [kind, key, x] of [['tree', 'wood', 8], ['berry', 'berry', 9], ['stone', 'stone', 11]]) {
+    const s = F.createGame(); s.farmer = { x, y: 3, facing: 'up' }; const before = JSON.stringify(s.resourceNodes);
+    assert.equal(F.act(s, true).ok, true); assert.equal(s.resources[key], 1); assert.equal(s.stats.gathered, 1);
+    F.selectTool(s, 'hoe'); assert.equal(F.act(s, true).ok, false); assert.equal(s.resources[key], 1); assert.notEqual(JSON.stringify(s.resourceNodes), before);
+  }
+});
+check('钓鱼成功、失败与采空不调随机数', () => {
+  const s = F.createGame(); s.farmer = { x: 15, y: 10, facing: 'right' }; F.selectTool(s, 'rod');
+  assert.equal(F.act(s, true, () => 0.5).ok, true); assert.equal(s.resources.fish, 1);
+  assert.equal(F.act(s, true, () => 0.9).ok, false); assert.equal(s.resourceNodes['fish-1'].charges, 1);
+  F.act(s, true, () => 0.1); let calls = 0; assert.equal(F.act(s, true, () => { calls++; return 0; }).ok, false); assert.equal(calls, 0);
+});
+check('节点按钓点1天、木果2天、石3天刷新', () => {
+  const s = F.createGame(); for (const id of ['fish-1', 'tree-1', 'berry-1', 'stone-1']) { s.resourceNodes[id].charges = 0; s.resourceNodes[id].respawnDay = s.day + ({ 'fish-1': 1, 'tree-1': 2, 'berry-1': 2, 'stone-1': 3 }[id]); }
+  assert.match(F.sleep(s, () => 0.99).events.join(' '), /资源刷新/); assert.equal(s.resourceNodes['fish-1'].charges, 2); assert.equal(s.resourceNodes['tree-1'].charges, 0);
+  F.sleep(s, () => 0.99); assert.equal(s.resourceNodes['tree-1'].charges, 2); assert.equal(s.resourceNodes['berry-1'].charges, 2); assert.equal(s.resourceNodes['stone-1'].charges, 0);
+  F.sleep(s, () => 0.99); assert.equal(s.resourceNodes['stone-1'].charges, 2);
+});
+check('四资源出售与作物一键全卖隔离', () => {
+  const s = F.createGame(); for (const [key, item] of Object.entries(F.RESOURCES)) { s.resources[key] = 2; const gold = s.gold; assert.equal(F.sellResource(s, key, 1).ok, true); assert.equal(s.gold, gold + item.sellPrice); }
+  const snapshot = JSON.stringify(s.resources); assert.equal(F.sellResource(s, 'wood', 2).ok, false); s.bag.carrot = 1; F.sellAll(s); assert.equal(JSON.stringify(s.resources), snapshot);
+});
+check('池鱼野果食用与快捷吃', () => {
+  const s = F.createGame(); s.resources.fish = 1; s.resources.berry = 2; s.health = 80; F.eatFood(s, 'fish'); assert.equal(s.health, 92); F.eatFood(s, 'berry'); assert.equal(s.health, 97);
+  assert.match(F.quickEat(s).message, /野果/); assert.equal(s.health, 100); assert.equal(F.eatFood(s, 'berry').ok, false);
+});
+check('三配方制作、原子性失败与免费放置', () => {
+  const s = F.createGame(); s.resources = { wood: 9, stone: 2, fish: 0, berry: 2 }; const gold = s.gold;
+  for (const key of ['fence', 'scarecrow', 'snack']) assert.equal(F.craft(s, key).ok, true); assert.equal(s.stats.crafted, 3);
+  assert.deepEqual([s.fenceStock, s.scarecrowStock, s.snacks], [1, 1, 1]); const before = JSON.stringify(s.resources); assert.equal(F.craft(s, 'scarecrow').ok, false); assert.equal(JSON.stringify(s.resources), before);
+  assert.equal(F.placeBuilding(s, 'scarecrow').ok, true); assert.equal(s.gold, gold); s.farmer.x = 6; assert.equal(F.placeBuilding(s, 'fence').ok, true); assert.equal(s.gold, gold);
+});
+check('资源送礼与每日一次限制', () => {
+  const s = F.createGame(); s.resources = { wood: 1, stone: 0, fish: 1, berry: 1 };
+  assert.equal(F.giftVillager(s, 'mayor', 'fish').ok, true); assert.equal(s.villagers.mayor.hearts, 1); assert.equal(F.giftVillager(s, 'mayor', 'berry').ok, false);
+  s.day++; assert.equal(F.giftVillager(s, 'mayor', 'berry').ok, true); s.day++; assert.equal(F.giftVillager(s, 'mayor', 'wood').ok, false);
+});
+check('v6/v7 迁移清洗且幂等', () => {
+  const s = F.createGame(); s.version = 6; s.gold = 321; s.weapon = 'axe'; s.villagers.mayor.hearts = 3; delete s.resources; delete s.resourceNodes; delete s.scarecrowStock;
+  const next = F.migrateSave(s); assert.equal(next.version, 7); assert.equal(next.gold, 321); assert.equal(next.weapon, 'axe'); assert.equal(next.villagers.mayor.hearts, 3);
+  next.resources = { wood: -1, fish: 2.5, berry: 3, bogus: 9 }; next.resourceNodes['tree-1'] = { charges: 99, respawnDay: -2 }; const once = F.migrateSave(next); assert.equal(JSON.stringify(once.resources), JSON.stringify({ wood: 0, stone: 0, fish: 0, berry: 3 })); assert.equal(JSON.stringify(once.resourceNodes['tree-1']), JSON.stringify({ charges: 2, respawnDay: 0 }));
+  const snapshot = JSON.stringify(once); F.migrateSave(once); assert.equal(JSON.stringify(once), snapshot);
+});
+check('节点地形不可走且邻格可达', () => {
+  const s = F.createGame(); for (const node of F.RESOURCE_NODES) assert.equal(F.canWalk(s, node.x, node.y), false);
+  assert.ok(F.findPath(s, 8, 2)?.length); assert.ok(F.findPath(s, 16, 10)?.length); assert.ok(F.pathBetween(s, { x: 13, y: 3 }, { x: 13, y: 0 })?.length);
 });
 console.log(`全部通过：${passed} 项测试。`);

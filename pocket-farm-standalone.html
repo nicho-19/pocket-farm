@@ -62,7 +62,7 @@ h2{font-size:var(--text-md);margin:0;color:var(--wood-dark)}
 .panel-heading{display:flex;justify-content:space-between;align-items:center;gap:var(--space-2);margin:-16px -16px 12px;padding:var(--space-2) var(--space-4);background:var(--wood-mid);border-radius:9px 9px 0 0;min-height:44px}
 .panel-heading h2{flex:1;text-align:center;color:var(--cream);font-size:var(--text-md)}
 .panel-heading span{font-size:var(--text-xs);color:var(--cream)}
-.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-2)}
+.tools{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-2)}
 .tool{position:relative;border:2px solid var(--line);border-radius:var(--radius-sm);background:var(--cream);padding:var(--space-2);min-height:56px;display:flex;align-items:center;justify-content:center;gap:var(--space-1);color:var(--wood-dark)}
 .tool.active{border-color:var(--wheat);background:var(--wheat-light);box-shadow:0 0 0 2px var(--wheat);transform:scale(1.08);z-index:1;font-weight:bold}
 .tool-icon{font-size:20px}.tool small{font-size:var(--text-xs)}
@@ -181,9 +181,9 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
         <div class="scene-frame"><canvas id="farm" width="768" height="576" aria-label="口袋田园农场画面"></canvas><div id="tutorial" class="tutorial-bubble" role="status" hidden></div></div>
         <div class="touch-controls" aria-label="手机操作"><div class="dpad"><button type="button" data-direction="up" aria-label="上移">▲</button><button type="button" data-direction="left" aria-label="左移">◀</button><button type="button" data-direction="down" aria-label="下移">▼</button><button type="button" data-direction="right" aria-label="右移">▶</button></div><button id="touch-use" class="touch-use" type="button"><span>使用</span><span class="use-progress" aria-hidden="true"></span></button></div>
         <div class="tool-panel">
-          <div class="panel-heading"><h2>农具与种子</h2><span>按 1–4 切换工具</span></div>
+          <div class="panel-heading"><h2>农具与种子</h2><span>按 1–6 切换工具</span></div>
           <div id="tools" class="tools"></div>
-          <div id="crop-options" class="crop-options"></div><div id="build-panel" class="build-panel" hidden><strong>选择防御道具</strong><button type="button" data-build="scarecrow">稻草人 · 150 G</button><button type="button" data-build="fence">木栅栏 · 40 G</button><span>面前草地高亮，按使用键放置；切工具取消</span></div>
+          <div id="crop-options" class="crop-options"></div><div id="build-panel" class="build-panel" hidden><strong>选择防御道具</strong><button type="button" data-build="scarecrow">稻草人 · 150 G</button><button type="button" data-build="fence">木栅栏 · 40 G</button><span>面前草地高亮，按使用键放置；切工具取消</span><strong>制作（消耗资源）</strong><div id="crafts"></div></div>
         </div>
         <p id="hint" class="hint" role="status"></p>
       </section>
@@ -191,7 +191,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
         <section class="side-card intro-card">
           <div class="panel-heading"><h2>今天的农事</h2></div>
           <h2>把小日子种出来。</h2>
-          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；吃收成回血，夜里防乌鸦和强盗。</p>
+          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；林地可采集，池边可钓鱼，资源可制作防御道具。</p>
           <div class="key-help"><kbd>W A S D</kbd><span>移动 / 转向</span><kbd>空格</kbd><span>对前方操作</span></div>
           <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button><button id="watch" class="quiet-button watch-button" type="button">⚔ 守夜</button>
         </section>
@@ -216,7 +216,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
   <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="modal-heading"><h2>今日订单</h2><button id="close-orders" class="close-button" type="button" aria-label="关闭订单板">×</button></div><div id="orders-list"></div></div></div>
-  <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><p id="villager-line"></p><div id="villager-content"></div><h3>送一份作物</h3><div id="villager-gifts"></div></div></div>
+  <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><p id="villager-line"></p><div id="villager-content"></div><h3>送一份礼物</h3><div id="villager-gifts"></div></div></div>
   <div id="game-over" class="modal" hidden><div class="modal-card game-over-card" role="dialog" aria-modal="true" aria-label="游戏结束"><h2>农夫倒下了</h2><p id="game-over-stats"></p><button id="restart" class="primary-button" type="button">重新开始</button></div></div>
   <script>
 (function (root) {
@@ -238,13 +238,24 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     hoe: { name: '锄头' },
     seed: { name: '种子' },
     scythe: { name: '镰刀' },
+    gather: { name: '采集' },
+    rod: { name: '鱼竿' },
     build: { name: '建造' }
   };
   const DIRECTIONS = {
     up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0]
   };
   const BUILDINGS = { scarecrow: { name: '稻草人', price: 150 }, fence: { name: '木栅栏', price: 40 } };
-  const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20 };
+  const RESOURCES = {
+    wood: { name: '木材', sellPrice: 6 }, stone: { name: '石头', sellPrice: 8 },
+    fish: { name: '池鱼', sellPrice: 35 }, berry: { name: '野果', sellPrice: 12 }
+  };
+  const FOOD_HEAL = { carrot: 6, potato: 8, corn: 8, strawberry: 10, pumpkin: 14, snack: 20, fish: 12, berry: 5 };
+  const CRAFTS = {
+    fence: { name: '木栅栏', costs: { wood: 2 }, stock: 'fenceStock' },
+    scarecrow: { name: '稻草人', costs: { wood: 5, stone: 2 }, stock: 'scarecrowStock' },
+    snack: { name: '野果饭团', costs: { berry: 2 }, stock: 'snacks' }
+  };
   const WEAPONS = { none: { name: '徒手', price: 0, damage: 0, counter: 0 }, club: { name: '木棍', price: 100, damage: 1, counter: 0.30 }, axe: { name: '石斧', price: 300, damage: 2, counter: 0.55 }, sword: { name: '铁剑', price: 800, damage: 3, counter: 0.80 } };
   const LAYOUT = {
     home: { x: 1, y: 1 }, homeDoor: { x: 1, y: 2 },
@@ -256,6 +267,14 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     gate: { x: 10, y: 13 }, raidSpawns: [{ x: 9, y: 3 }, { x: 13, y: 3 }, { x: 18, y: 3 }]
   };
   const VILLAGERS = { mayor: { name: '村长', points: [[2, 2], [2, 3], [3, 3]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[4, 2], [4, 3], [3, 3]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 2], [6, 3], [5, 3]], gift: '木栅栏×2' } };
+  const RESOURCE_NODES = [
+    ...[[8, 2], [10, 2], [12, 2], [15, 2], [17, 2], [19, 2]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
+    ...[[9, 2], [16, 2]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
+    ...[[11, 2], [18, 2]].map(([x, y], i) => ({ id: `stone-${i + 1}`, kind: 'stone', x, y, maxCharges: 2 })),
+    ...[[16, 10], [16, 12]].map(([x, y], i) => ({ id: `fish-${i + 1}`, kind: 'fish', x, y, maxCharges: 2 }))
+  ];
+  function resourceNodeAt(x, y) { return RESOURCE_NODES.find(node => node.x === x && node.y === y) || null; }
+  function freshResourceNodes() { return Object.fromEntries(RESOURCE_NODES.map(node => [node.id, { charges: node.maxCharges, respawnDay: 0 }])); }
   function inArea(x, y, area) { return x >= area.left && x <= area.right && y >= area.top && y <= area.bottom; }
   function terrainAt(x, y) {
     if (!inBounds(x, y)) return 'outside';
@@ -291,7 +310,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function createGame() {
     return {
-      version: 6,
+      version: 7,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -301,16 +320,19 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       gameOver: false,
       villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
       fenceStock: 0,
+      scarecrowStock: 0,
       farmer: { x: 5, y: 3, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
       bag: cropCounts(),
+      resources: { wood: 0, stone: 0, fish: 0, berry: 0 },
+      resourceNodes: freshResourceNodes(),
       snacks: 0,
       nightRaid: { level: 'calm', count: 0 },
       orders: [],
       nextOrderId: 1,
-      stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0 },
+      stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0 },
       manualTool: false,
       tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
@@ -321,7 +343,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const legacy = saved?.version <= 5 && Array.isArray(saved.plots) &&
       saved.plots.length === LAYOUT.oldPlots.height &&
       saved.plots.every(row => Array.isArray(row) && row.length === LAYOUT.oldPlots.width);
-    if (!saved || ![1, 2, 3, 4, 5, 6].includes(saved.version) ||
+    if (!saved || ![1, 2, 3, 4, 5, 6, 7].includes(saved.version) ||
         !Array.isArray(saved.plots) ||
         !((saved.plots.length === HEIGHT && saved.plots.every(row => Array.isArray(row) && row.length === WIDTH)) || legacy) ||
         !saved.farmer || !(legacy ? saved.farmer.x >= 0 && saved.farmer.x < LAYOUT.oldPlots.width && saved.farmer.y >= 0 && saved.farmer.y < LAYOUT.oldPlots.height : inBounds(saved.farmer.x, saved.farmer.y)) ||
@@ -344,6 +366,15 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded }];
     }));
     saved.fenceStock = Number.isInteger(saved.fenceStock) && saved.fenceStock >= 0 ? saved.fenceStock : 0;
+    saved.scarecrowStock = Number.isInteger(saved.scarecrowStock) && saved.scarecrowStock >= 0 ? saved.scarecrowStock : 0;
+    saved.resources = Object.fromEntries(Object.keys(RESOURCES).map(key => [key, Number.isInteger(saved.resources?.[key]) && saved.resources[key] >= 0 ? saved.resources[key] : 0]));
+    saved.resourceNodes = Object.fromEntries(RESOURCE_NODES.map(node => {
+      const old = saved.resourceNodes?.[node.id];
+      return [node.id, {
+        charges: Number.isInteger(old?.charges) ? Math.max(0, Math.min(node.maxCharges, old.charges)) : node.maxCharges,
+        respawnDay: Number.isInteger(old?.respawnDay) && old.respawnDay >= 0 ? old.respawnDay : 0
+      }];
+    }));
     saved.seeds = { ...cropCounts(), ...saved.seeds };
     saved.bag = { ...cropCounts(), ...saved.bag };
     for (const row of saved.plots) {
@@ -374,10 +405,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (saved.nightRaid.attackers) saved.nightRaid.attackers = saved.nightRaid.attackers.map(kind => kind === 'boar' ? 'bandit' : kind);
     saved.orders = Array.isArray(saved.orders) ? saved.orders.filter(order => CROPS[order.crop] && Number.isInteger(order.amount) && order.amount > 0 && Number.isInteger(order.deadline) && Number.isInteger(order.reward)).map(order => ({ ...order, accepted: order.accepted !== false })) : [];
     saved.nextOrderId = Number.isInteger(saved.nextOrderId) ? saved.nextOrderId : 1;
-    saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, ...saved.stats };
+    saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 6;
+    saved.version = 7;
     return saved;
   }
 
@@ -442,11 +473,33 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     return result(true, `已选择${CROPS[crop].name}种子`, []);
   }
 
-  function act(state, smart) {
+  function gatherNode(state, node, random = Math.random) {
+    const status = state.resourceNodes[node.id];
+    if (!status.charges) return result(false, `该${node.kind === 'fish' ? '钓点' : '节点'}已采空，明天或刷新日恢复`);
+    if (node.kind === 'fish') {
+      if (random() >= 0.75) return result(false, '鱼咬钩又跑了');
+      state.resources.fish++; status.charges--; state.stats.fished++;
+      if (!status.charges) status.respawnDay = state.day + 1;
+      return { ...result(true, '钓到了1条池鱼'), tool: 'rod', resource: 'fish' };
+    }
+    const key = node.kind === 'tree' ? 'wood' : node.kind;
+    state.resources[key]++; status.charges--; state.stats.gathered++;
+    if (!status.charges) status.respawnDay = state.day + (node.kind === 'stone' ? 3 : 2);
+    return { ...result(true, `采集到了1份${RESOURCES[key].name}`), tool: 'gather', resource: key };
+  }
+
+  function act(state, smart, random = Math.random) {
     const { x, y } = frontCell(state);
     if (!inBounds(x, y)) return result(false, '前方没有地块');
     const plot = state.plots[y][x];
     let tool = state.tool;
+    const node = resourceNodeAt(x, y);
+    if (node) {
+      const required = node.kind === 'fish' ? 'rod' : 'gather';
+      if (smart && !state.manualTool) tool = required;
+      if (tool !== required) return result(false, node.kind === 'fish' ? '请改用鱼竿钓鱼' : '请改用采集工具');
+      return gatherNode(state, node, random);
+    }
     if (smart && !state.manualTool) {
       if (plot.crop && plot.crop.progress >= CROPS[plot.crop.type].days) tool = 'scythe';
       else if (plot.tilled && !plot.crop && state.seeds[state.selectedCrop] > 0) tool = 'seed';
@@ -504,8 +557,9 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (!['farm', 'residential'].includes(terrainAt(x, y))) return result(false, '这里只能在农田或住宅空地建造');
     if (plot.tilled || plot.crop || plot.structure) return result(false, '只能放在空草地上');
     const price = BUILDINGS[kind].price;
-    const free = kind === 'fence' && state.fenceStock > 0;
-    if (free) state.fenceStock--;
+    const stock = kind === 'fence' ? 'fenceStock' : 'scarecrowStock';
+    const free = state[stock] > 0;
+    if (free) state[stock]--;
     else {
       if (state.gold < price) return result(false, `金币不足，还差 ${price - state.gold} G`);
       state.gold -= price;
@@ -514,14 +568,16 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     return result(true, `放置了${BUILDINGS[kind].name}${free ? '，使用库存' : `，花费 ${price} G`}`);
   }
 
-  function giftVillager(state, id, crop) {
-    if (!VILLAGERS[id] || !CROPS[crop]) return result(false, '送礼目标无效');
+  function giftVillager(state, id, item) {
+    const resource = item === 'fish' || item === 'berry';
+    if (!VILLAGERS[id] || (!CROPS[item] && !resource)) return result(false, '送礼目标或礼物无效');
     const villager = state.villagers[id];
     if (villager.giftedDay === state.day) return result(false, '今天已经送过这位村民了');
-    if (state.bag[crop] < 1) return result(false, '背包里没有这份作物');
-    state.bag[crop]--; villager.giftedDay = state.day;
+    if ((resource ? state.resources[item] : state.bag[item]) < 1) return result(false, '背包里没有这份礼物');
+    if (resource) state.resources[item]--; else state.bag[item]--;
+    villager.giftedDay = state.day;
     villager.hearts = Math.min(5, villager.hearts + 1);
-    const events = [`送给${VILLAGERS[id].name}一份${CROPS[crop].name}，好感 ${villager.hearts}/5`];
+    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5`];
     if (villager.hearts === 5 && !villager.rewarded) {
       villager.rewarded = true;
       if (id === 'mayor') state.gold += 100;
@@ -564,6 +620,12 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     state.stats.income += total;
     return { ...result(true, `卖出 ${amount} 份${CROPS[crop].name}，获得 ${total} G`), warning };
   }
+  function sellResource(state, key, amount) {
+    if (!RESOURCES[key] || !Number.isInteger(amount) || amount < 1 || state.resources[key] < amount) return result(false, '卖出数量无效');
+    const total = amount * RESOURCES[key].sellPrice;
+    state.resources[key] -= amount; state.gold += total; state.stats.income += total;
+    return result(true, `卖出 ${amount} 份${RESOURCES[key].name}，获得 ${total} G`);
+  }
   function sellAll(state) {
     const { total, count } = salePreview(state);
     if (!count) return result(false, '背包里没有可卖的富余作物');
@@ -592,17 +654,28 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function eatFood(state, food) {
     if (!FOOD_HEAL[food]) return result(false, '无效食物');
-    if (!(food === 'snack' ? state.snacks : state.bag[food])) return result(false, '背包里没有这种食物');
+    const resource = food === 'fish' || food === 'berry';
+    if (!(food === 'snack' ? state.snacks : resource ? state.resources[food] : state.bag[food])) return result(false, '背包里没有这种食物');
     if (state.health >= HEALTH_MAX) return result(false, '生命已满，别浪费粮食');
     if (food === 'snack') state.snacks--;
+    else if (resource) state.resources[food]--;
     else state.bag[food]--;
     const restored = Math.min(FOOD_HEAL[food], HEALTH_MAX - state.health);
     state.health += restored;
-    return result(true, `吃${food === 'snack' ? '饭团' : CROPS[food].name}恢复了 ${restored} 点生命`);
+    return result(true, `吃${food === 'snack' ? '饭团' : resource ? RESOURCES[food].name : CROPS[food].name}恢复了 ${restored} 点生命`);
   }
   function quickEat(state) {
-    const food = Object.keys(FOOD_HEAL).filter(key => key === 'snack' ? state.snacks : state.bag[key]).sort((a, b) => FOOD_HEAL[b] - FOOD_HEAL[a])[0];
+    const food = Object.keys(FOOD_HEAL).filter(key => key === 'snack' ? state.snacks : RESOURCES[key] ? state.resources[key] : state.bag[key]).sort((a, b) => FOOD_HEAL[b] - FOOD_HEAL[a])[0];
     return food ? eatFood(state, food) : result(false, '背包里没有食物');
+  }
+
+  function craft(state, key) {
+    const recipe = CRAFTS[key];
+    if (!recipe) return result(false, '无效制作配方');
+    if (Object.entries(recipe.costs).some(([resource, amount]) => state.resources[resource] < amount)) return result(false, '制作资源不足');
+    for (const [resource, amount] of Object.entries(recipe.costs)) state.resources[resource] -= amount;
+    state[recipe.stock]++; state.stats.crafted++;
+    return result(true, `制作了${recipe.name}`);
   }
 
   function generateOrders(state, random) {
@@ -839,6 +912,14 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       }
     }
     state.day++;
+    let refreshed = false;
+    for (const node of RESOURCE_NODES) {
+      const status = state.resourceNodes[node.id];
+      if (status.charges < node.maxCharges && status.respawnDay > 0 && state.day >= status.respawnDay) {
+        status.charges = node.maxCharges; status.respawnDay = 0; refreshed = true;
+      }
+    }
+    if (refreshed) events.push('野外资源刷新了');
     const roll = random || Math.random;
     state.weather = state.tomorrow;
     state.tomorrow = roll() < RAIN_CHANCE[season(state)] ? 'rain' : 'sunny';
@@ -853,9 +934,9 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
-    act, buySeed, sellAll, sellCrop, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
+    act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
 
@@ -909,9 +990,9 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     '冬': { grass: '#aac1b8', grassDark: '#8aada8', light: '#d8dfd0', sky: '#dfe9e1' }
   };
   const cropColors = { carrot: '#ef9252', potato: '#d5b481', pumpkin: '#e5a44b', strawberry: '#df514f', corn: '#f4c851' };
-  const icons = { hoe: '⚒', seed: '✿', scythe: '☷', build: '▥' };
+  const icons = { hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
-  const keys = ['hoe', 'seed', 'scythe', 'build'];
+  const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
   let camera = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
   let cameraTime = 0;
@@ -1069,6 +1150,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (kind === 'hoe') tone(160, 0.13, 'triangle', 0, 70);
     if (kind === 'seed') tone(560, 0.08, 'sine');
     if (kind === 'scythe') { tone(440, 0.09, 'sine'); tone(660, 0.13, 'sine', 0.09); }
+    if (kind === 'gather') tone(190, 0.1, 'triangle', 0, 110);
+    if (kind === 'rod') { tone(420, 0.08, 'sine'); tone(760, 0.14, 'sine', 0.08); }
     if (kind === 'sell') { tone(740, 0.12, 'sine'); tone(1100, 0.2, 'sine', 0.11); }
     if (kind === 'error') tone(150, 0.19, 'sawtooth', 0, 110);
     if (kind === 'rain') tone(600, 0.18, 'triangle', 0, 340);
@@ -1088,7 +1171,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const target = F.frontCell(state);
     const tool = state.tool;
     const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
-    const outcome = state.tool === 'build' && buildChoice ? F.placeBuilding(state, buildChoice) : F.act(state, true);
+    const outcome = state.tool === 'build' && buildChoice ? F.placeBuilding(state, buildChoice) : F.act(state, true, Math.random);
     if (!outcome.ok && !outcome.message.includes('种子') && state.plots[target.y]?.[target.x]?.tilled && !state.plots[target.y]?.[target.x]?.crop && !state.seeds[state.selectedCrop]) enqueueToast('没有种子了，去商店购买', 'alert');
     sound(outcome.ok ? (outcome.tool || 'seed') : 'error');
     if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };
@@ -1101,6 +1184,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
         addParticle(x, y, 0, -0.055, 600, '#fff5c2', 'text');
         addParticle(x, y, 0, 0, 530, cropColors[harvested] || '#e8c373', 'harvest');
       }
+      if (outcome.resource === 'fish') for (let i = 0; i < 8; i++) addParticle(x, y, (i - 4) * 0.018, -0.035 - i % 2 * 0.012, 420, '#d9f4ef', 'rain');
     }
     handle(outcome, true);
   }
@@ -1277,6 +1361,30 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawResourceNodes(now) {
+    for (const node of F.RESOURCE_NODES) {
+      const status = state.resourceNodes[node.id];
+      const x = node.x * TILE, y = node.y * TILE;
+      if (node.kind === 'tree') {
+        if (status.charges) {
+          box(x + 12, y + 37, 18, 5, '#8a6040'); box(x + 18, y + 32, 18, 5, '#a5794f');
+        } else { box(x + 14, y + 33, 21, 10, '#8a6040'); box(x + 18, y + 32, 13, 3, '#c79a62'); }
+      } else if (node.kind === 'berry') {
+        pixelLine(x + 13, y + 40, x + 25, y + 18, '#654b35', 3); pixelLine(x + 34, y + 40, x + 25, y + 18, '#654b35', 3);
+        if (status.charges) { box(x + 9, y + 19, 31, 22, '#4f874f'); box(x + 15, y + 13, 21, 27, '#6aa45d'); }
+        for (let i = 0; i < status.charges; i++) { ctx.fillStyle = '#c94646'; ctx.beginPath(); ctx.arc(x + 19 + i * 11, y + 24 + i * 5, 3, 0, Math.PI * 2); ctx.fill(); }
+      } else if (node.kind === 'stone') {
+        if (status.charges) { box(x + 8, y + 24, 33, 17, '#7f8985'); box(x + 14, y + 18, 21, 8, '#aab1aa'); }
+        else { box(x + 11, y + 37, 9, 4, '#838b86'); box(x + 27, y + 34, 12, 6, '#9aa19c'); }
+      } else {
+        const age = now % 1100 / 1100; ctx.globalAlpha = status.charges ? 0.85 : 0.2;
+        ctx.beginPath(); ctx.ellipse(x + 24, y + 25, 5 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2); ctx.strokeStyle = '#e7f4e4'; ctx.stroke();
+        if (status.charges) { box(x + 22, y + 18, 4, 8, '#f4eee2'); box(x + 22, y + 17, 4, 4, '#d94e49'); }
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   function drawHouseCell(cell, name) {
@@ -1537,7 +1645,11 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     drawPondRipples(now);
     for (let y = F.LAYOUT.woods.top; y <= F.LAYOUT.woods.bottom; y++)
       for (let x = F.LAYOUT.woods.left; x <= F.LAYOUT.woods.right; x++)
-        if (F.terrainAt(x, y) === 'tree') drawTreeCanopy(x * TILE + 4, y * TILE - 8, now);
+        if (F.terrainAt(x, y) === 'tree' && !['berry', 'stone'].includes(F.resourceNodeAt(x, y)?.kind)) {
+          const node = F.resourceNodeAt(x, y); const empty = node && !state.resourceNodes[node.id].charges;
+          ctx.globalAlpha = empty ? 0.28 : 1; drawTreeCanopy(x * TILE + 4 + (empty ? 5 : 0), y * TILE - 8 + (empty ? 8 : 0), now); ctx.globalAlpha = 1;
+        }
+    drawResourceNodes(now);
     for (let y = 0; y < F.HEIGHT; y++) {
       for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
     }
@@ -1628,6 +1740,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     raidForecast.classList.toggle('danger', state.nightRaid.level === 'large');
     document.getElementById('build-panel').hidden = state.tool !== 'build';
     document.querySelector('[data-build="fence"]').textContent = state.fenceStock ? `木栅栏 · 库存 ${state.fenceStock}` : '木栅栏 · 40 G';
+    document.querySelector('[data-build="scarecrow"]').textContent = state.scarecrowStock ? `稻草人 · 库存 ${state.scarecrowStock}` : '稻草人 · 150 G';
+    document.getElementById('crafts').innerHTML = Object.entries(F.CRAFTS).map(([key, recipe]) => `<button type="button" data-craft="${key}">制作${recipe.name} · ${Object.entries(recipe.costs).map(([r, n]) => `${F.RESOURCES[r].name}×${n}`).join(' + ')} · 库存 ${state[recipe.stock]}</button>`).join('');
     const hasBandits = !!state.nightRaid.attackers?.includes('bandit');
     document.getElementById('watch').disabled = !hasBandits || !!battle;
     document.getElementById('home-watch').disabled = !hasBandits || !!battle;
@@ -1647,15 +1761,15 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     ).join('');
     document.getElementById('bag').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
       `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><span>× ${state.bag[key]} · ${crop.sellPrice} G/份 · 小计 ${state.bag[key] * crop.sellPrice} G</span><button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button><button type="button" data-sell-one="${key}">卖 1</button><button type="button" data-sell-crop="${key}">卖全部</button></div>`
-    ).join('') + `<div class="bag-row"><span>饭团 × ${state.snacks}</span><button type="button" data-eat="snack">吃 +20</button></div><div class="bag-row"><span>木栅栏库存 × ${state.fenceStock}</span></div>`;
+    ).join('') + '<h3>野外资源</h3>' + Object.entries(F.RESOURCES).map(([key, resource]) => `<div class="bag-row"><span>${resource.name}</span><span>× ${state.resources[key]} · ${resource.sellPrice} G/份</span>${F.FOOD_HEAL[key] ? `<button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button>` : ''}<button type="button" data-resource-one="${key}">卖 1</button><button type="button" data-resource-all="${key}">卖全部</button></div>`).join('') + `<div class="bag-row"><span>饭团 × ${state.snacks}</span><button type="button" data-eat="snack">吃 +20</button></div><div class="bag-row"><span>木栅栏库存 × ${state.fenceStock}</span></div><div class="bag-row"><span>稻草人库存 × ${state.scarecrowStock}</span></div>`;
     document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) => {
       const total = crop.seedPrice * buyAmounts[key];
       return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
     }).join('') + `<div id="weapon-shop"><strong>武器 · 高档替换低档，旧武器不退款</strong><p>当前：${F.WEAPONS[state.weapon].name}</p>${Object.entries(F.WEAPONS).filter(([key]) => key !== 'none').map(([key, weapon]) => `<div class="shop-row"><span class="row-copy"><strong>${weapon.name}</strong><small>每击 ${weapon.damage} 点伤害</small></span><span class="row-price">${weapon.price} G</span><button type="button" data-weapon="${key}" ${weapon.damage <= F.WEAPONS[state.weapon].damage ? 'disabled' : ''}>购买</button></div>`).join('')}</div><div class="shop-row"><span class="row-icon" aria-hidden="true">▣</span><span class="row-copy"><strong>饭团</strong><small>恢复 20 生命</small></span><span class="row-price ${state.gold < 20 ? 'unaffordable' : ''}">20 G</span><button type="button" data-snack="buy" class="${state.gold < 20 ? 'cant-afford' : ''}" aria-disabled="${state.gold < 20}">购买</button></div>`;
-    document.getElementById('bag-value').textContent = `背包农产品总价值：${Object.entries(F.CROPS).reduce((sum, [key, crop]) => sum + state.bag[key] * crop.sellPrice, 0)} G`;
+    document.getElementById('bag-value').textContent = `背包总价值（作物+资源）：${Object.entries(F.CROPS).reduce((sum, [key, crop]) => sum + state.bag[key] * crop.sellPrice, 0) + Object.entries(F.RESOURCES).reduce((sum, [key, resource]) => sum + state.resources[key] * resource.sellPrice, 0)} G`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
     document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" ${order.accepted === false ? `data-accept="${order.id}">接单` : `data-deliver="${order.id}">交付`}</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
-    document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>完成订单：${state.stats.orders}</p><p>击退强盗：${state.stats.repelled}</p><p>已玩天数：${state.stats.days}</p>`;
+    document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>累计采集：${state.stats.gathered}</p><p>累计钓鱼：${state.stats.fished}</p><p>累计制作：${state.stats.crafted}</p><p>完成订单：${state.stats.orders}</p><p>击退强盗：${state.stats.repelled}</p><p>已玩天数：${state.stats.days}</p>`;
     if (speakingTo) refreshVillager();
     drawScene(performance.now());
     updateOverlays(performance.now());
@@ -1787,7 +1901,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     const content = document.getElementById('villager-content');
     content.innerHTML = id === 'mayor' ? document.getElementById('orders-list').innerHTML : id === 'hunter' ? document.getElementById('weapon-shop')?.outerHTML || '' : document.getElementById('shop').innerHTML;
     const person = state.villagers[id];
-    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('');
+    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
   }
 
   function openVillager(id) {
@@ -1830,7 +1944,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
     if (event.key.toLowerCase() === 'h') { event.preventDefault(); goHome(); return; }
     if (event.key.toLowerCase() === 'q') { event.preventDefault(); eat(); return; }
-    if (event.key >= '1' && event.key <= '4') { selectTool(keys[Number(event.key) - 1]); return; }
+    if (event.key >= '1' && event.key <= '6') { selectTool(keys[Number(event.key) - 1]); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
       event.preventDefault();
@@ -1847,6 +1961,8 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (button) selectTool(button.dataset.tool);
   });
   document.getElementById('build-panel').addEventListener('click', event => {
+    const craft = event.target.closest('[data-craft]');
+    if (craft) { handle(F.craft(state, craft.dataset.craft), true); return; }
     const button = event.target.closest('[data-build]');
     if (button) { buildChoice = button.dataset.build; handle({ ok: true, message: `准备放置${F.BUILDINGS[buildChoice].name}`, events: [] }, false); }
   });
@@ -1866,6 +1982,12 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) { outcome.message = `金币不足，还差 ${20 - state.gold} G`; sound('error'); } handle(outcome, true); }
   });
   document.getElementById('bag').addEventListener('click', event => {
+    const resourceOne = event.target.closest('[data-resource-one]');
+    const resourceAll = event.target.closest('[data-resource-all]');
+    if (resourceOne || resourceAll) {
+      const button = resourceOne || resourceAll; const key = resourceOne ? button.dataset.resourceOne : button.dataset.resourceAll;
+      handle(F.sellResource(state, key, resourceOne ? 1 : state.resources[key]), true); return;
+    }
     const one = event.target.closest('[data-sell-one]');
     const all = event.target.closest('[data-sell-crop]');
     if (one || all) {

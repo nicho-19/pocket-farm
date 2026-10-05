@@ -21,9 +21,9 @@
         <div class="scene-frame"><canvas id="farm" width="768" height="576" aria-label="口袋田园农场画面"></canvas><div id="tutorial" class="tutorial-bubble" role="status" hidden></div></div>
         <div class="touch-controls" aria-label="手机操作"><div class="dpad"><button type="button" data-direction="up" aria-label="上移">▲</button><button type="button" data-direction="left" aria-label="左移">◀</button><button type="button" data-direction="down" aria-label="下移">▼</button><button type="button" data-direction="right" aria-label="右移">▶</button></div><button id="touch-use" class="touch-use" type="button"><span>使用</span><span class="use-progress" aria-hidden="true"></span></button></div>
         <div class="tool-panel">
-          <div class="panel-heading"><h2>农具与种子</h2><span>按 1–4 切换工具</span></div>
+          <div class="panel-heading"><h2>农具与种子</h2><span>按 1–6 切换工具</span></div>
           <div id="tools" class="tools"></div>
-          <div id="crop-options" class="crop-options"></div><div id="build-panel" class="build-panel" hidden><strong>选择防御道具</strong><button type="button" data-build="scarecrow">稻草人 · 150 G</button><button type="button" data-build="fence">木栅栏 · 40 G</button><span>面前草地高亮，按使用键放置；切工具取消</span></div>
+          <div id="crop-options" class="crop-options"></div><div id="build-panel" class="build-panel" hidden><strong>选择防御道具</strong><button type="button" data-build="scarecrow">稻草人 · 150 G</button><button type="button" data-build="fence">木栅栏 · 40 G</button><span>面前草地高亮，按使用键放置；切工具取消</span><strong>制作（消耗资源）</strong><div id="crafts"></div></div>
         </div>
         <p id="hint" class="hint" role="status"></p>
       </section>
@@ -31,7 +31,7 @@
         <section class="side-card intro-card">
           <div class="panel-heading"><h2>今天的农事</h2></div>
           <h2>把小日子种出来。</h2>
-          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；吃收成回血，夜里防乌鸦和强盗。</p>
+          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；林地可采集，池边可钓鱼，资源可制作防御道具。</p>
           <div class="key-help"><kbd>W A S D</kbd><span>移动 / 转向</span><kbd>空格</kbd><span>对前方操作</span></div>
           <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button><button id="watch" class="quiet-button watch-button" type="button">⚔ 守夜</button>
         </section>
@@ -56,7 +56,7 @@
   <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
   <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="modal-heading"><h2>今日订单</h2><button id="close-orders" class="close-button" type="button" aria-label="关闭订单板">×</button></div><div id="orders-list"></div></div></div>
-  <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><p id="villager-line"></p><div id="villager-content"></div><h3>送一份作物</h3><div id="villager-gifts"></div></div></div>
+  <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><p id="villager-line"></p><div id="villager-content"></div><h3>送一份礼物</h3><div id="villager-gifts"></div></div></div>
   <div id="game-over" class="modal" hidden><div class="modal-card game-over-card" role="dialog" aria-modal="true" aria-label="游戏结束"><h2>农夫倒下了</h2><p id="game-over-stats"></p><button id="restart" class="primary-button" type="button">重新开始</button></div></div>
   <script src="farm-logic.js"></script>
   <script src="game.js"></script>
