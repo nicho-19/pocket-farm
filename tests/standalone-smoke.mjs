@@ -68,7 +68,7 @@ assert.ok(context.PocketFarm);
 assert.equal(context.PocketFarm.createGame().tutorial, 0);
 const oldSave = context.PocketFarm.createGame();
 delete oldSave.tutorial;
-assert.equal(context.PocketFarm.migrateSave(oldSave).tutorial, 3);
+assert.equal(context.PocketFarm.migrateSave(oldSave).tutorial, 2);
 assert.equal(element('season-banner').hidden, false);
 assert.match(element('season-banner').textContent, /春 · 第 1 天/);
 assert.equal(element('tutorial').hidden, false);
@@ -148,7 +148,26 @@ for (const script of scripts) vm.runInContext(script, lowContext, { filename: fi
 element('touch-use').on_pointerdown({ preventDefault() {}, currentTarget: { setPointerCapture() {} }, pointerId: 2 });
 assert.equal(element('energy-item').classList.contains('low-energy'), true);
 assert.match(element('toast-stack').innerHTML, /体力快用完了/);
+const refunded = context.PocketFarm.createGame();
+refunded.version = 3;
+refunded.upgrades.water = true;
+refunded.tool = 'water';
+refunded.plots[5][5].tilled = true;
+refunded.plots[5][5].crop = { type: 'carrot', progress: 2 };
+refunded.plots[5][5].watered = false;
+storage.set('pocket-farm-save-v1', JSON.stringify(refunded));
+const refundContext = vm.createContext({
+  document, window: { devicePixelRatio: 2, addEventListener() {} },
+  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+  performance: { now: () => now }, requestAnimationFrame() {}, setTimeout: callback => { callback(); return 1; },
+  HTMLButtonElement: class {}, confirm: () => true, console
+});
+for (const script of scripts) vm.runInContext(script, refundContext, { filename: file });
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).gold, 700);
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).plots[5][5].crop.progress, 2);
+assert.match(element('log').innerHTML, /水壶已回收，返还 600G/);
+assert.match(element('toast-stack').innerHTML, /水壶已回收，返还 600G/);
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
-console.log('新增 UI 断言通过：toast 可入队、换季横幅可触发、低体力 HUD 警示类名与提醒。');
+console.log('新增 UI 断言通过：今晚预报、建造面板、回家寻路、toast、旧档退款提示、换季横幅与低体力警示。');
 console.log('播种后移动冒烟通过；3072×2304 与窄屏 1440×1080 backstore、逐帧贴图和静态层按需重绘断言通过。');
 console.log(`模拟 Canvas 连续 60 帧完成：总耗时 ${frameCost.toFixed(1)} ms，平均 ${(frameCost / 60).toFixed(2)} ms/帧。`);

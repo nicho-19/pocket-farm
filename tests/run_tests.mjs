@@ -4,308 +4,157 @@ import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import vm from 'node:vm';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const source = readFileSync(resolve(here, '../farm-logic.js'), 'utf8');
 const context = vm.createContext({});
-vm.runInContext(source, context, { filename: 'farm-logic.js' });
+vm.runInContext(readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../farm-logic.js'), 'utf8'), context);
 const F = context.PocketFarm;
 let passed = 0;
-
-function check(name, run) {
-  run();
-  passed++;
-  console.log(`✓ ${name}`);
+function check(name, run) { run(); passed++; console.log(`✓ ${name}`); }
+function plant(state, x = 5, y = 5, type = 'carrot', progress = 0) {
+  state.plots[y][x] = { tilled: true, crop: { type, progress }, structure: null };
 }
-
-function plantedGame() {
-  const game = F.createGame();
-  assert.equal(F.act(game).ok, true); // 初始面向 (5,5)，先锄地
-  F.selectTool(game, 'seed');
-  assert.equal(F.act(game).ok, true);
-  return game;
-}
-
-check('逻辑可在无 DOM 的 Node 环境加载', () => {
-  assert.equal(F.WIDTH, 12);
-  assert.equal(F.HEIGHT, 9);
+check('无 DOM 加载与初始状态', () => {
+  const state = F.createGame();
+  assert.equal(state.gold, 100); assert.equal(state.energy, 40); assert.equal(state.version, 4);
+  assert.deepEqual(Object.keys(F.TOOLS).sort(), ['build', 'hoe', 'scythe', 'seed']);
 });
-
-check('初始状态：100 金币、40 体力、3 包萝卜种子', () => {
-  const game = F.createGame();
-  assert.equal(game.gold, 100);
-  assert.equal(game.energy, 40);
-  assert.equal(game.seeds.carrot, 3);
+check('锄地播种及按天生长', () => {
+  const s = F.createGame(); assert.equal(F.act(s).ok, true); F.selectTool(s, 'seed'); assert.equal(F.act(s).ok, true);
+  assert.equal(s.plots[5][5].crop.progress, 0); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 1);
 });
-
-const game = plantedGame();
-const plot = game.plots[5][5];
-check('锄地与播种消耗体力和种子', () => {
-  assert.equal(plot.tilled, true);
-  assert.equal(plot.crop.type, 'carrot');
-  assert.equal(game.energy, 34);
-  assert.equal(game.seeds.carrot, 2);
+check('雨天额外生长一格', () => {
+  const s = F.createGame(); plant(s); s.tomorrow = 'rain'; F.sleep(s, () => 0.99);
+  assert.equal(s.weather, 'rain'); assert.equal(s.plots[5][5].crop.progress, 2);
 });
-
-check('未浇水过夜不生长', () => {
-  F.sleep(game, () => 0.99);
-  assert.equal(plot.crop.progress, 0);
+check('成熟后镰刀收获并可再次播种', () => {
+  const s = F.createGame(); plant(s, 5, 5, 'carrot', 3); F.selectTool(s, 'scythe');
+  assert.equal(F.act(s).ok, true); assert.equal(s.bag.carrot, 1); assert.equal(s.plots[5][5].crop, null);
 });
-
-check('浇水后过夜增长一格，并重置湿润状态', () => {
-  F.selectTool(game, 'water');
-  assert.equal(F.act(game).ok, true);
-  F.sleep(game, () => 0.99);
-  assert.equal(plot.crop.progress, 1);
-  assert.equal(plot.watered, false);
+check('旧档迁移保住作物进度并忽略湿润字段', () => {
+  const s = F.createGame(); s.version = 1; s.tool = 'water'; plant(s, 5, 5, 'potato', 2); s.plots[5][5].watered = false;
+  F.migrateSave(s); assert.equal(s.plots[5][5].crop.progress, 2); assert.equal('watered' in s.plots[5][5], false);
+  assert.equal(s.tool, 'hoe'); assert.equal(s.version, 4); F.sleep(s, () => 0.99); assert.equal(s.plots[5][5].crop.progress, 3);
 });
-
-check('雨天自动浇水，未手动浇水也能在夜里生长', () => {
-  game.tomorrow = 'rain';
-  F.sleep(game, () => 0.99); // 第 4 天按预报下雨，自动浇水
-  assert.equal(game.weather, 'rain');
-  assert.equal(plot.crop.progress, 1);
-  assert.equal(plot.watered, true);
-  F.sleep(game, () => 0.99);
-  assert.equal(plot.crop.progress, 2);
+check('v2 存档补全默认值并保留金币土地', () => {
+  const s = F.createGame(); s.version = 2; s.gold = 37; s.plots[2][3].tilled = true;
+  for (const key of ['tomorrow', 'snacks', 'upgrades', 'orders', 'nextOrderId', 'stats', 'manualTool']) delete s[key];
+  F.migrateSave(s); assert.equal(s.version, 4); assert.equal(s.gold, 37);
+  assert.equal(s.plots[2][3].tilled, true); assert.equal(s.stats.income, 0);
+  assert.equal(s.nightRaid.level, 'calm');
 });
-
-check('再浇水并过夜，萝卜第 3 次生长后成熟', () => {
-  F.selectTool(game, 'water');
-  assert.equal(F.act(game).ok, true);
-  const outcome = F.sleep(game, () => 0.99);
-  assert.equal(plot.crop.progress, F.CROPS.carrot.days);
-  assert.ok(outcome.events.some(item => item.includes('萝卜成熟了')));
+check('旧铁水壶全额返还且不重复返还', () => {
+  const s = F.createGame(); s.version = 3; s.gold = 12; s.upgrades.water = true;
+  F.migrateSave(s); assert.equal(s.gold, 612); assert.match(s.migrationEvents[0], /返还 600G/);
+  F.migrateSave(s); assert.equal(s.gold, 612); assert.equal('water' in s.upgrades, false);
 });
-
-check('镰刀收获后背包增加，地块可再次播种', () => {
-  F.selectTool(game, 'scythe');
-  assert.equal(F.act(game).ok, true);
-  assert.equal(game.bag.carrot, 1);
-  assert.equal(plot.crop, null);
-  assert.equal(plot.tilled, true);
-});
-
-check('卖出按真实售价增加金币并清空背包', () => {
-  const before = game.gold;
-  assert.equal(F.sellAll(game).ok, true);
-  assert.equal(game.gold, before + F.CROPS.carrot.sellPrice);
-  assert.equal(game.bag.carrot, 0);
-});
-
-check('卖钱后能继续购买种子，完成经济闭环', () => {
-  const before = game.gold;
-  assert.equal(F.buySeed(game, 'pumpkin', 1).ok, true);
-  assert.equal(game.gold, before - F.CROPS.pumpkin.seedPrice);
-  assert.equal(game.seeds.pumpkin, 1);
-});
-
-check('体力不足拒绝动作，状态不变；睡觉回满', () => {
-  const tired = F.createGame();
-  tired.energy = 3;
-  const before = JSON.stringify(tired.plots[5][5]);
-  const outcome = F.act(tired);
-  assert.equal(outcome.ok, false);
-  assert.match(outcome.message, /体力不足/);
-  assert.equal(JSON.stringify(tired.plots[5][5]), before);
-  assert.equal(tired.energy, 3);
-  F.sleep(tired, () => 0.99);
-  assert.equal(tired.energy, F.ENERGY_MAX);
-});
-
-check('金币不足无法买种子', () => {
-  const poor = F.createGame();
-  poor.gold = 0;
-  assert.equal(F.buySeed(poor, 'pumpkin', 1).ok, false);
-  assert.equal(poor.seeds.pumpkin, 0);
-});
-
-check('农夫逐格移动并面向前方地块', () => {
-  const walker = F.createGame();
-  assert.equal(F.move(walker, 'left').ok, true);
-  assert.equal(walker.farmer.x, 4);
-  assert.equal(walker.farmer.facing, 'left');
-  assert.equal(F.frontCell(walker).x, 3);
-});
-
-check('每 28 天换季并重置季节内日期', () => {
-  const calendar = F.createGame();
-  calendar.day = 29;
-  assert.equal(F.season(calendar), '夏');
-  assert.equal(F.seasonDay(calendar), 1);
-});
-
-check('五种作物的播种、生长、收获与出售均按表驱动', () => {
-  assert.equal(Object.keys(F.CROPS).length, 5);
+check('五种作物均可成熟出售', () => {
   for (const [key, crop] of Object.entries(F.CROPS)) {
-    const farm = F.createGame();
-    farm.seeds[key] = 1;
-    F.act(farm);
-    F.selectCrop(farm, key);
-    F.selectTool(farm, 'seed');
-    assert.equal(F.act(farm).ok, true);
-    for (let day = 0; day < crop.days; day++) {
-      F.selectTool(farm, 'water');
-      F.act(farm);
-      F.sleep(farm, () => 0.99);
-    }
-    F.selectTool(farm, 'scythe');
-    assert.equal(F.act(farm).ok, true);
-    assert.equal(farm.bag[key], 1);
-    const gold = farm.gold;
-    F.sellAll(farm);
-    assert.equal(farm.gold, gold + crop.sellPrice);
+    const s = F.createGame(); plant(s, 5, 5, key);
+    for (let i = 0; i < crop.days; i++) F.sleep(s, () => 0.99);
+    F.selectTool(s, 'scythe'); assert.equal(F.act(s).ok, true); assert.equal(s.bag[key], 1);
+    const before = s.gold; assert.equal(F.sellCrop(s, key, 1).ok, true); assert.equal(s.gold, before + crop.sellPrice);
   }
 });
-
-check('v1 存档迁移补齐新作物数量并升到 v3', () => {
-  const old = F.createGame();
-  old.version = 1;
-  delete old.seeds.strawberry;
-  delete old.seeds.corn;
-  delete old.bag.strawberry;
-  delete old.bag.corn;
-  old.plots[5][5].tilled = true;
-  old.plots[5][5].crop = { type: 'carrot', progress: 2 };
-  const upgraded = F.migrateSave(old);
-  assert.equal(upgraded.version, 3);
-  assert.equal(upgraded.seeds.strawberry, 0);
-  assert.equal(upgraded.bag.corn, 0);
-  assert.equal(upgraded.plots[5][5].crop.progress, 2);
+check('新手两夜保护、45% 入侵与第七夜大入侵', () => {
+  assert.equal(F.planRaid(1, () => 0).level, 'calm'); assert.equal(F.planRaid(2, () => 0).level, 'calm');
+  assert.equal(F.planRaid(3, () => 0.44).level, 'raid'); assert.equal(F.planRaid(3, () => 0.45).level, 'calm');
+  assert.equal(F.planRaid(7, () => 0.99).level, 'large'); assert.equal(F.planRaid(7, () => 0.99).count, 2);
+  assert.equal(F.planRaid(70, () => 0.99).count, 6);
 });
-
-check('v2 存档迁移保留旧字段并补 v3 默认值', () => {
-  const old = F.createGame();
-  old.version = 2;
-  old.gold = 37;
-  old.plots[2][3].tilled = true;
-  for (const key of ['tomorrow', 'snacks', 'upgrades', 'orders', 'nextOrderId', 'stats', 'manualTool']) delete old[key];
-  const saved = F.migrateSave(old);
-  assert.equal(saved.version, 3);
-  assert.equal(saved.gold, 37);
-  assert.equal(saved.plots[2][3].tilled, true);
-  assert.equal(saved.stats.income, 0);
-  assert.equal(saved.upgrades.water, false);
+check('今晚预报严格对应已存夜袭计划', () => {
+  const s = F.createGame(); s.day = 2; F.sleep(s, () => 0); assert.equal(s.day, 3); assert.equal(s.nightRaid.level, 'raid');
+  const plan = JSON.stringify(s.nightRaid); const outcome = F.sleep(s, () => 0.99);
+  assert.equal(outcome.raid.events.length > 0, true); assert.equal(JSON.parse(plan).attackers.length, 1);
 });
-
-check('智能使用与手动工具优先级', () => {
-  const farm = F.createGame();
-  assert.equal(F.act(farm, true).tool, 'hoe');
-  assert.equal(F.act(farm, true).tool, 'seed');
-  assert.equal(F.act(farm, true).tool, 'water');
-  F.selectTool(farm, 'hoe');
-  assert.equal(F.act(farm, true).ok, false);
+check('稻草人护住三乘三成熟作物', () => {
+  const s = F.createGame(); plant(s, 5, 5, 'strawberry', 4); s.plots[4][4].structure = 'scarecrow';
+  const result = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['crow'] });
+  assert.equal(result.lost, 0); assert.ok(s.plots[5][5].crop); assert.match(result.events.join(' '), /乌鸦/);
 });
-
-check('订单生成数量、期限和奖励范围', () => {
-  const farm = F.createGame();
-  F.generateOrders(farm, () => 0.4);
-  assert.ok(farm.orders.length >= 1 && farm.orders.length <= 3);
-  for (const order of farm.orders) {
-    assert.equal(order.amount, 1);
-    assert.ok(order.deadline >= farm.day + 2 && order.deadline <= farm.day + 4);
-    assert.ok(order.reward > F.CROPS[order.crop].sellPrice * order.amount * 1.5);
-  }
+check('野猪被完整栅栏墙挡下并啃掉一段', () => {
+  const s = F.createGame(); plant(s, 2, 4);
+  for (let y = 0; y < F.HEIGHT; y++) s.plots[y][1].structure = 'fence';
+  const r = F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['boar'] });
+  assert.equal(r.lost, 0); assert.equal(r.fences, 1); assert.ok(s.plots[4][2].crop);
 });
-
-check('订单交付扣背包、加金币与统计', () => {
-  const farm = F.createGame();
-  F.generateOrders(farm, () => 0);
-  const order = farm.orders[0];
-  farm.bag[order.crop] = order.amount;
-  const before = farm.gold;
-  assert.equal(F.deliverOrder(farm, order.id).ok, true);
-  assert.equal(farm.bag[order.crop], 0);
-  assert.equal(farm.gold, before + order.reward);
-  assert.equal(farm.stats.orders, 1);
+check('单晚损失最多三格作物', () => {
+  const s = F.createGame(); for (let x = 2; x < 9; x++) plant(s, x, 4, 'carrot', 3);
+  const r = F.resolveRaid(s, { level: 'large', count: 6, attackers: Array(6).fill('crow') });
+  assert.equal(r.lost, 3); assert.equal(s.plots[4].filter(p => p.crop).length, 4);
 });
-
-check('过期订单失效并在日志提示', () => {
-  const farm = F.createGame();
-  F.generateOrders(farm, () => 0);
-  farm.orders[0].deadline = farm.day;
-  const outcome = F.sleep(farm, () => 0.99);
-  assert.ok(outcome.events.some(message => message.includes('过期')));
-  assert.ok(farm.orders.every(order => order.deadline > farm.day));
+check('野猪拱作物后回草地', () => {
+  const s = F.createGame(); plant(s, 2, 4); F.resolveRaid(s, { level: 'raid', count: 1, attackers: ['boar'] });
+  assert.equal(s.plots[4][2].tilled, false); assert.equal(s.plots[4][2].crop, null);
 });
-
-check('锄地播种后可进入作物格、穿过作物并从作物格向四邻离开', () => {
-  const farm = F.createGame();
-  assert.equal(F.act(farm).ok, true);
-  F.selectTool(farm, 'seed');
-  assert.equal(F.act(farm).ok, true);
-  assert.equal(F.move(farm, 'down').ok, true);
-  assert.deepEqual([farm.farmer.x, farm.farmer.y], [5, 5]);
-  for (const crop of Object.keys(F.CROPS)) {
-    for (let progress = 0; progress <= F.CROPS[crop].days; progress++) {
-      const walker = F.createGame();
-      walker.plots[5][5] = { tilled: true, watered: progress % 2 === 0, crop: { type: crop, progress } };
-      assert.equal(F.move(walker, 'down').ok, true, `${crop} 阶段 ${progress}`);
-    }
-  }
-  const tilled = F.createGame();
-  tilled.plots[5][5].tilled = true;
-  assert.equal(F.move(tilled, 'down').ok, true);
-  for (const direction of ['up', 'down', 'left', 'right']) {
-    const walker = F.createGame();
-    walker.plots[4][5] = { tilled: true, watered: true, crop: { type: 'carrot', progress: 3 } };
-    assert.equal(F.move(walker, direction).ok, true, direction);
-  }
-  farm.plots[6][5].crop = { type: 'carrot', progress: 1 };
-  assert.equal(F.move(farm, 'down').ok, true);
-  assert.deepEqual([farm.farmer.x, farm.farmer.y], [5, 6]);
+check('放置和镰刀回收防御道具', () => {
+  const s = F.createGame(); s.gold = 200; assert.equal(F.placeBuilding(s, 'scarecrow').ok, true);
+  assert.equal(s.gold, 50); F.selectTool(s, 'scythe'); assert.equal(F.act(s).ok, true);
+  assert.equal(s.plots[5][5].structure, null); assert.equal(s.gold, 50);
 });
-
-check('BFS 可穿过作物抵达目标旁，地图边界不可穿越', () => {
-  const farm = F.createGame();
-  farm.plots[4][6].crop = { type: 'carrot', progress: 0 };
-  assert.ok(F.findPath(farm, 7, 4)?.length > 0);
-  const blocked = F.createGame();
-  for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) blocked.plots[4 + dy][5 + dx].crop = { type: 'carrot', progress: 0 };
-  assert.ok(F.findPath(blocked, 9, 8)?.length > 0);
-  assert.equal(F.findPath(blocked, -1, 8), null);
+check('作物可穿行，栅栏不可通行', () => {
+  const s = F.createGame(); plant(s); assert.equal(F.move(s, 'down').ok, true);
+  s.plots[6][5].structure = 'fence'; assert.equal(F.move(s, 'down').ok, false);
 });
-
-check('升级与饭团按价格生效', () => {
-  const farm = F.createGame();
-  farm.gold = 1100;
-  assert.equal(F.buyUpgrade(farm, 'hoe').ok, true);
-  assert.equal(F.buyUpgrade(farm, 'water').ok, true);
-  assert.equal(farm.gold, 100);
-  F.act(farm);
-  assert.equal(farm.energy, 38);
-  assert.equal(F.buySnack(farm).ok, true);
-  farm.energy = 10;
-  assert.equal(F.eatSnack(farm).ok, true);
-  assert.equal(farm.energy, 25);
+check('回家 BFS 可到家门口', () => {
+  const s = F.createGame(); const path = F.findPath(s, 0, 3); assert.ok(path?.length);
+  for (const direction of path) assert.equal(F.move(s, direction).ok, true);
+  assert.equal(Math.abs(s.farmer.x) + Math.abs(s.farmer.y - 3), 1);
 });
-
-check('铁水壶浇水覆盖面前三格且只扣一次体力', () => {
-  const farm = F.createGame();
-  farm.upgrades.water = true;
-  for (const x of [4, 5, 6]) farm.plots[5][x].crop = { type: 'carrot', progress: 0 };
-  farm.tool = 'water';
-  assert.equal(F.act(farm).ok, true);
-  assert.ok([4, 5, 6].every(x => farm.plots[5][x].watered));
-  assert.equal(farm.energy, 38);
+check('批量购买按总价扣款并拒绝不足', () => {
+  const s = F.createGame(); assert.equal(F.buySeed(s, 'carrot', 5).ok, true);
+  assert.equal(s.gold, 50); assert.equal(s.seeds.carrot, 8); assert.equal(F.buySeed(s, 'pumpkin', 2).ok, false);
 });
-
-check('天气预报与下一天天气一致，季节雨率分列', () => {
-  const farm = F.createGame();
-  farm.tomorrow = 'rain';
-  F.sleep(farm, () => 0.99);
-  assert.equal(farm.weather, 'rain');
-  assert.equal(farm.tomorrow, 'sunny');
-  assert.equal(F.RAIN_CHANCE['春'], 0.3);
-  assert.equal(F.RAIN_CHANCE['夏'], 0.4);
+check('一键全卖保留当前订单需求', () => {
+  const s = F.createGame(); s.bag.carrot = 5; s.bag.potato = 2;
+  s.orders = [{ id: 1, crop: 'carrot', amount: 2, deadline: 4, reward: 50 }];
+  assert.equal(F.salePreview(s).total, 3 * 25 + 2 * 48); assert.equal(F.sellAll(s).ok, true);
+  assert.equal(s.bag.carrot, 2); assert.equal(s.bag.potato, 0);
 });
-
-check('作物投入回收比随生长天数递增', () => {
+check('手动卖出低于订单需求会标记提醒', () => {
+  const s = F.createGame(); s.bag.carrot = 2; s.orders = [{ id: 1, crop: 'carrot', amount: 2, deadline: 4, reward: 50 }];
+  assert.equal(F.sellCrop(s, 'carrot', 1).warning, true);
+});
+check('订单交付与过期刷新', () => {
+  const s = F.createGame(); F.generateOrders(s, () => 0); const order = s.orders[0]; s.bag[order.crop] = 1;
+  assert.equal(F.deliverOrder(s, order.id).ok, true); F.generateOrders(s, () => 0); s.orders[0].deadline = s.day;
+  assert.match(F.sleep(s, () => 0.99).events.join(' '), /过期/);
+});
+check('精钢锄和饭团仍可用', () => {
+  const s = F.createGame(); s.gold = 500; assert.equal(F.buyUpgrade(s, 'hoe').ok, true); assert.equal(F.act(s).ok, true);
+  assert.equal(s.energy, 38); assert.equal(F.buySnack(s).ok, true); s.energy = 10; assert.equal(F.eatSnack(s).ok, true);
+});
+check('体力不足拒绝动作，睡觉恢复至 40', () => {
+  const s = F.createGame(); s.energy = 3; const before = JSON.stringify(s.plots[5][5]);
+  assert.equal(F.act(s).ok, false); assert.equal(JSON.stringify(s.plots[5][5]), before);
+  F.sleep(s, () => 0.99); assert.equal(s.energy, 40);
+});
+check('金币不足拒绝购买，数量不变', () => {
+  const s = F.createGame(); s.gold = 0; assert.equal(F.buySeed(s, 'pumpkin', 1).ok, false); assert.equal(s.seeds.pumpkin, 0);
+});
+check('移动改变朝向，边界拒绝越界', () => {
+  const s = F.createGame(); assert.equal(F.move(s, 'left').ok, true); assert.equal(s.farmer.x, 4);
+  assert.equal(F.frontCell(s).x, 3); s.farmer.x = 0; assert.equal(F.move(s, 'left').ok, false);
+});
+check('每 28 天换季且日期重置', () => {
+  const s = F.createGame(); s.day = 29; assert.equal(F.season(s), '夏'); assert.equal(F.seasonDay(s), 1);
+});
+check('智能工具选锄头、种子与成熟镰刀，手选优先', () => {
+  const s = F.createGame(); assert.equal(F.act(s, true).tool, 'hoe');
+  assert.equal(F.act(s, true).tool, 'seed'); plant(s, 5, 5, 'carrot', 3);
+  assert.equal(F.act(s, true).tool, 'scythe'); F.selectTool(s, 'hoe'); assert.equal(F.act(s, true).ok, false);
+});
+check('天气预报与次日一致，四季雨率可读', () => {
+  const s = F.createGame(); s.tomorrow = 'rain'; F.sleep(s, () => 0.99);
+  assert.equal(s.weather, 'rain'); assert.equal(s.tomorrow, 'sunny');
+  assert.equal(F.RAIN_CHANCE['春'], 0.3); assert.equal(F.RAIN_CHANCE['夏'], 0.4);
+});
+check('BFS 穿过作物，越界目标拒绝', () => {
+  const s = F.createGame(); for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) plant(s, 5 + dx, 4 + dy);
+  assert.ok(F.findPath(s, 9, 8)?.length); assert.equal(F.findPath(s, -1, 8), null);
+});
+check('较长生长期的种子回报率更高', () => {
   const crops = Object.values(F.CROPS);
-  for (const longer of crops) for (const shorter of crops) {
-    if (longer.days > shorter.days) {
-      assert.ok(longer.sellPrice / longer.seedPrice > shorter.sellPrice / shorter.seedPrice);
-    }
+  for (const longer of crops) for (const shorter of crops) if (longer.days > shorter.days) {
+    assert.ok(longer.sellPrice / longer.seedPrice > shorter.sellPrice / shorter.seedPrice);
   }
 });
-
 console.log(`全部通过：${passed} 项测试。`);

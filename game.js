@@ -40,11 +40,13 @@
     '冬': { grass: '#aac1b8', grassDark: '#8aada8', light: '#d8dfd0', sky: '#dfe9e1' }
   };
   const cropColors = { carrot: '#ef9252', potato: '#d5b481', pumpkin: '#e5a44b', strawberry: '#df514f', corn: '#f4c851' };
-  const icons = { hoe: '⚒', seed: '✿', water: '◆', scythe: '☷' };
+  const icons = { hoe: '⚒', seed: '✿', scythe: '☷', build: '▥' };
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
-  const keys = ['hoe', 'seed', 'water', 'scythe'];
+  const keys = ['hoe', 'seed', 'scythe', 'build'];
   let state = load() || F.createGame();
-  let journal = ['欢迎来到口袋田园！先开垦一块地吧。'];
+  let journal = [...(state.migrationEvents || []), '欢迎来到口袋田园！先开垦一块地吧。'];
+  const migrationMessages = state.migrationEvents || [];
+  delete state.migrationEvents;
   let particles = [];
   let lastFrame = 0;
   let walkingUntil = 0;
@@ -61,10 +63,13 @@
   let toolBounce = '';
   let bounceUntil = 0;
   let swingTool = 'hoe';
-  let waterArc = null;
   let audio = null;
   let muted = false;
   let shake = null;
+  let buildChoice = null;
+  let homeRoute = false;
+  let orderWarningShown = false;
+  const buyAmounts = Object.fromEntries(Object.keys(F.CROPS).map(key => [key, 1]));
   let route = [];
   let routeNext = 0;
   let lowEnergyNotified = false;
@@ -99,9 +104,9 @@
     if (outcome.ok && changed) {
       for (const item of outcome.events.slice().reverse()) journal.unshift(item);
       journal = journal.slice(0, 8);
-      if (state.tutorial < 3 && outcome.tool === ['hoe', 'seed', 'water'][state.tutorial]) {
+      if (state.tutorial < 2 && outcome.tool === ['hoe', 'seed'][state.tutorial]) {
         state.tutorial++;
-        if (state.tutorial === 3) tutorialDoneUntil = performance.now() + 1600;
+        if (state.tutorial === 2) tutorialDoneUntil = performance.now() + 1600;
       }
       save();
     }
@@ -139,9 +144,9 @@
     const banner = document.getElementById('season-banner');
     if (bannerUntil && now >= bannerUntil) { banner.hidden = true; bannerUntil = 0; }
     const bubble = document.getElementById('tutorial');
-    const steps = ['① 选中锄头，锄一块地', '② 种下任意种子', '③ 给它浇水'];
-    bubble.hidden = state.tutorial >= 3 && now >= tutorialDoneUntil;
-    bubble.textContent = state.tutorial >= 3 ? '祝丰收！' : steps[state.tutorial];
+    const steps = ['① 选中锄头，锄一块地', '② 种下任意种子'];
+    bubble.hidden = state.tutorial >= 2 && now >= tutorialDoneUntil;
+    bubble.textContent = state.tutorial >= 2 ? '祝丰收！' : steps[state.tutorial];
     const use = document.getElementById('touch-use');
     use.style.setProperty('--use-progress', input.use ? `${Math.min(100, Math.max(0, (now - (input.useNext - 180)) / 180 * 100))}%` : '0%');
     use.classList.toggle('is-pressed', input.use);
@@ -175,7 +180,6 @@
   function sound(kind) {
     if (kind === 'hoe') tone(160, 0.13, 'triangle', 0, 70);
     if (kind === 'seed') tone(560, 0.08, 'sine');
-    if (kind === 'water') tone(700, 0.23, 'triangle', 0, 260);
     if (kind === 'scythe') { tone(440, 0.09, 'sine'); tone(660, 0.13, 'sine', 0.09); }
     if (kind === 'sell') { tone(740, 0.12, 'sine'); tone(1100, 0.2, 'sine', 0.11); }
     if (kind === 'error') tone(150, 0.19, 'sawtooth', 0, 110);
@@ -192,19 +196,16 @@
     const target = F.frontCell(state);
     const tool = state.tool;
     const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
-    const outcome = F.act(state, true);
+    const outcome = state.tool === 'build' && buildChoice ? F.placeBuilding(state, buildChoice) : F.act(state, true);
     if (!outcome.ok && !outcome.message.includes('种子') && state.plots[target.y]?.[target.x]?.tilled && !state.plots[target.y]?.[target.x]?.crop && !state.seeds[state.selectedCrop]) enqueueToast('没有种子了，去商店购买', 'alert');
     if (!outcome.ok && outcome.message.includes('体力不足')) input.use = false;
-    sound(outcome.ok ? outcome.tool : 'error');
+    sound(outcome.ok ? (outcome.tool || 'seed') : 'error');
     if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };
     if (outcome.ok) {
       swingUntil = performance.now() + 200;
-      swingTool = outcome.tool;
+      swingTool = outcome.tool || 'seed';
       const x = FIELD_X + target.x * TILE + 24;
       const y = FIELD_Y + target.y * TILE + 20;
-      if (outcome.tool === 'water') {
-        waterArc = { x: FIELD_X + state.farmer.x * TILE + 24, y: FIELD_Y + state.farmer.y * TILE + 18, toX: x, toY: y, until: performance.now() + 200 };
-      }
       if (outcome.tool === 'scythe') {
         addParticle(x, y, 0, -0.055, 600, '#fff5c2', 'text');
         addParticle(x, y, 0, 0, 530, cropColors[harvested] || '#e8c373', 'harvest');
@@ -224,6 +225,8 @@
     if (input.direction && input.source !== source) return;
     if (input.direction === direction) return;
     route = [];
+    homeRoute = false;
+    document.getElementById('home-confirm').hidden = true;
     input.direction = direction;
     input.source = source;
     const now = performance.now();
@@ -245,6 +248,7 @@
   function pressUse() {
     if (input.use) return;
     route = [];
+    homeRoute = false;
     input.use = true;
     action();
     input.useNext = performance.now() + 180;
@@ -486,33 +490,28 @@
   }
 
   function drawPlot(plot, x, y) {
-    if (!plot.tilled) return;
+    if (!plot.tilled && !plot.structure) return;
     const px = FIELD_X + x * TILE, py = FIELD_Y + y * TILE;
-    box(px + 2, py + 4, 44, 41, plot.watered ? '#604a40' : '#8a6249');
-    box(px + 4, py + 5, 39, 3, plot.watered ? '#755849' : '#a17855');
-    box(px + 7, py + 14, 34, 2, plot.watered ? '#4e3e38' : '#76533f');
-    box(px + 5, py + 29, 36, 2, plot.watered ? '#4e3e38' : '#76533f');
-    box(px + 8, py + 16, 30, 1, plot.watered ? '#856a53' : '#bb8e65');
-    box(px + 6, py + 31, 34, 1, plot.watered ? '#856a53' : '#bb8e65');
-    if (plot.watered) {
-      box(px + 34, py + 20, 5, 3, '#789da1');
-      box(px + 10, py + 37, 4, 2, '#789da1');
-      box(px + 22, py + 24, 6, 2, '#9ec9c2');
-      box(px + 35, py + 20, 2, 1, '#c6dfd2');
-      box(px + 11, py + 37, 2, 1, '#c6dfd2');
-    } else {
-      box(px + 11, py + 23, 3, 2, '#b78b64');
-      box(px + 35, py + 35, 4, 2, '#b78b64');
-      for (let i = 0; i < 4; i++) {
-        const dx = 8 + Math.floor(hash(x, y, 70 + i) * 31), dy = 9 + Math.floor(hash(x, y, 80 + i) * 30);
-        box(px + dx, py + dy, 4, 2, '#af805c'); box(px + dx, py + dy, 2, 1, '#c99b70');
-      }
+    if (plot.structure) {
+      if (plot.structure === 'fence') { box(px + 5, py + 16, 38, 8, '#8a6040'); box(px + 9, py + 7, 6, 34, '#c99b70'); box(px + 32, py + 7, 6, 34, '#c99b70'); }
+      else { box(px + 22, py + 8, 4, 35, '#76533f'); box(px + 7, py + 15, 34, 5, '#a17855'); box(px + 14, py + 5, 20, 8, '#d1aa7c'); box(px + 18, py + 21, 12, 12, '#e8c373'); }
+      return;
+    }
+    box(px + 2, py + 4, 44, 41, '#8a6249');
+    box(px + 4, py + 5, 39, 3, '#a17855');
+    box(px + 7, py + 14, 34, 2, '#76533f');
+    box(px + 5, py + 29, 36, 2, '#76533f');
+    box(px + 8, py + 16, 30, 1, '#bb8e65');
+    box(px + 6, py + 31, 34, 1, '#bb8e65');
+    for (let i = 0; i < 4; i++) {
+      const dx = 8 + Math.floor(hash(x, y, 70 + i) * 31), dy = 9 + Math.floor(hash(x, y, 80 + i) * 30);
+      box(px + dx, py + dy, 4, 2, '#af805c');
     }
     if (F.season(state) === '冬') {
       box(px + 2, py + 3, 43, 2, '#f3f5e9');
       box(px + 2, py + 3, 2, 41, '#e8f0e9');
     }
-    pixelLine(px + 4.5, py + 7.5, px + 42.5, py + 7.5, plot.watered ? '#af9b7d' : '#d1aa7c');
+    pixelLine(px + 4.5, py + 7.5, px + 42.5, py + 7.5, '#d1aa7c');
     pixelLine(px + 8, py + 16.5, px + 38, py + 16.5, '#d2ad795c');
     if (plot.crop) {
       shadow(px + 24, py + 38, 13, 4);
@@ -692,7 +691,6 @@
       const tx = facing === 'left' ? x + 1 : x + 37;
       box(tx, y + 22, 2, 14, '#8a6040');
       if (state.tool === 'hoe') box(tx - 4, y + 20, 10, 3, '#b5c1bd');
-      if (state.tool === 'water') { box(tx - 3, y + 27, 9, 7, '#6babb8'); box(tx + 5, y + 29, 5, 2, '#8ac9d0'); }
       if (state.tool === 'scythe') pixelLine(tx - 4, y + 21, tx + 6, y + 17, '#d8dfd2', 2);
       if (state.tool === 'seed') box(tx - 3, y + 29, 8, 6, '#d4ad65');
     } else {
@@ -700,15 +698,9 @@
       const side = facing === 'left' ? -1 : 1;
       const tx = (facing === 'left' ? x - 5 : facing === 'right' ? x + 37 : x + 31) + (swingTool === 'scythe' ? [-6, 8, 1][phase] * side : 0);
       const ty = y + [2, 17, 9][phase] + (swingTool === 'hoe' ? [-6, 4, 0][phase] : 0);
-      if (swingTool === 'water') {
-        box(tx - 5, ty + 6, 12, 9, '#6babb8'); box(tx - 3, ty + 8, 7, 3, '#9bd4d7');
-        pixelLine(tx - 3, ty + 6, tx + 4, ty + 2, '#b7d4ce', 2);
-        box(tx + side * 7, ty + (phase === 1 ? 13 : 9), 7, 3, '#8ac9d0');
-      } else {
-        pixelLine(tx, ty, tx + side * (swingTool === 'hoe' ? 7 : 4), ty + 18, '#8a6040', 3);
-        if (swingTool === 'hoe') box(tx - 6, ty - 2, 15, 4, '#b5c1bd');
-        else { pixelLine(tx - side * 7, ty + 2, tx + side * 6, ty - 5, '#d8dfd2', 2); box(tx - side * 7, ty + 2, 3, 3, '#bdc9c3'); }
-      }
+      pixelLine(tx, ty, tx + side * (swingTool === 'hoe' ? 7 : 4), ty + 18, '#8a6040', 3);
+      if (swingTool === 'hoe') box(tx - 6, ty - 2, 15, 4, '#b5c1bd');
+      else pixelLine(tx - side * 7, ty + 2, tx + side * 6, ty - 5, '#d8dfd2', 2);
     }
   }
 
@@ -738,7 +730,7 @@
     const front = F.frontCell(state);
     if (front.x >= 0 && front.y >= 0 && front.x < F.WIDTH && front.y < F.HEIGHT) {
       const px = FIELD_X + front.x * TILE, py = FIELD_Y + front.y * TILE;
-      ctx.globalAlpha = 0.55 + 0.35 * Math.sin(now / 350);
+      ctx.globalAlpha = state.tool === 'build' && buildChoice ? 0.9 : 0.55 + 0.35 * Math.sin(now / 350);
       box(px + 3, py + 2, 42, 3, UI_COLORS.focus);
       box(px + 3, py + 43, 42, 3, UI_COLORS.focus);
       box(px + 2, py + 3, 3, 40, UI_COLORS.focus);
@@ -752,14 +744,6 @@
       ctx.strokeRect(px + (Math.floor(now / 25) % 2 ? 2 : -2) + 3, py + 3, 42, 42);
     }
     drawFarmer(now);
-    if (waterArc && now < waterArc.until) {
-      for (let i = 0; i < 9; i++) {
-        const t = i / 8;
-        const x = waterArc.x + (waterArc.toX - waterArc.x) * t;
-        const y = waterArc.y + (waterArc.toY - waterArc.y) * t - 16 * Math.sin(t * Math.PI);
-        box(x, y, 2, 3, '#89dcea');
-      }
-    }
     for (const particle of particles) {
       ctx.globalAlpha = particle.kind === 'smoke' || particle.kind === 'star' || particle.kind === 'splash' ? Math.max(0, 1 - particle.age / particle.life) : 1;
       if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
@@ -776,7 +760,7 @@
         pixelLine(particle.x, particle.y, particle.x - 3, particle.y + 10, particle.color);
       } else if (particle.kind === 'snow') box(particle.x, particle.y, 3, 3, particle.color);
       else if (particle.kind === 'splash') { box(particle.x - 2, particle.y, 2, 2, particle.color); box(particle.x + 2, particle.y, 2, 2, particle.color); }
-      else box(particle.x, particle.y, particle.kind === 'smoke' ? 8 : particle.kind === 'drop' ? 3 : 4, particle.kind === 'smoke' ? 6 : particle.kind === 'drop' ? 5 : 4, particle.color);
+      else box(particle.x, particle.y, particle.kind === 'smoke' ? 8 : 4, particle.kind === 'smoke' ? 6 : 4, particle.color);
     }
     ctx.globalAlpha = 1;
     if (sleepStart) {
@@ -799,6 +783,11 @@
     document.getElementById('season-dot').dataset.season = F.season(state);
     document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
     document.getElementById('tomorrow').textContent = `明日 ${state.tomorrow === 'rain' ? '☂ 雨' : '☀ 晴'}`;
+    const raidForecast = document.getElementById('raid-forecast');
+    raidForecast.textContent = `今晚 ${state.nightRaid.level === 'large' ? '大入侵' : state.nightRaid.level === 'raid' ? '有动静' : '平静'}`;
+    raidForecast.classList.toggle('danger', state.nightRaid.level === 'large');
+    document.getElementById('build-panel').hidden = state.tool !== 'build';
+    document.getElementById('go-home').classList.toggle('home-alert', state.energy <= F.ENERGY_MAX / 4);
     document.getElementById('gold').textContent = `${Math.round(goldDisplay)} G`;
     document.getElementById('energy-text').textContent = `${state.energy} / ${F.ENERGY_MAX}`;
     document.getElementById('energy-fill').style.width = `${state.energy / F.ENERGY_MAX * 100}%`;
@@ -806,17 +795,19 @@
     energyItem.dataset.energy = state.energy;
     energyItem.classList.toggle('low-energy', state.energy <= F.ENERGY_MAX / 4);
     document.getElementById('tools').innerHTML = keys.map((key, i) =>
-      `<button type="button" class="tool ${state.tool === key ? 'active' : ''} ${toolBounce === key && performance.now() < bounceUntil ? 'bump' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-name">${state.upgrades[key] ? (key === 'hoe' ? '精钢锄' : '铁水壶') : F.TOOLS[key].name}</span><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${F.TOOLS[key].name}</span><small>${i + 1}</small>${(key === 'hoe' || key === 'water') && !state.upgrades[key] ? `<span class="tool-lock" data-unlock="${key}" aria-label="前往商店升级${F.TOOLS[key].name}"></span>` : ''}</button>`
+      `<button type="button" class="tool ${state.tool === key ? 'active' : ''} ${toolBounce === key && performance.now() < bounceUntil ? 'bump' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-name">${state.upgrades[key] ? '精钢锄' : F.TOOLS[key].name}</span><span class="tool-icon">${icons[key]}${state.upgrades[key] ? '✦' : ''}</span><span>${F.TOOLS[key].name}</span><small>${i + 1}</small>${key === 'hoe' && !state.upgrades[key] ? `<span class="tool-lock" data-unlock="${key}" aria-label="前往商店升级${F.TOOLS[key].name}"></span>` : ''}</button>`
     ).join('');
     document.getElementById('crop-options').innerHTML = '<span>播种：</span>' + Object.entries(F.CROPS).map(([key, crop]) =>
-      `<button type="button" class="crop-choice ${state.selectedCrop === key ? 'active' : ''}" data-crop="${key}" aria-pressed="${state.selectedCrop === key}">${crop.name} × ${state.seeds[key]}</button>`
+      `<button type="button" class="crop-choice ${state.selectedCrop === key ? 'active' : ''}" data-crop="${key}" aria-pressed="${state.selectedCrop === key}">${crop.name} × ${state.seeds[key]}${state.seeds[key] ? '' : '<span class="buy-badge">去买</span>'}</button>`
     ).join('');
     document.getElementById('bag').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
-      `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><strong>× ${state.bag[key]}</strong></div>`
+      `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><span>× ${state.bag[key]} · ${crop.sellPrice} G/份 · 小计 ${state.bag[key] * crop.sellPrice} G</span><button type="button" data-sell-one="${key}">卖 1</button><button type="button" data-sell-crop="${key}">卖全部</button></div>`
     ).join('') + `<div class="bag-row"><span>饭团</span><button type="button" data-eat="snack">吃掉 × ${state.snacks}</button></div>`;
-    document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) =>
-      `<div class="shop-row"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 售 ${crop.sellPrice} G</small></span><span class="row-price ${state.gold < crop.seedPrice ? 'unaffordable' : ''}">${crop.seedPrice} G</span><button type="button" data-buy="${key}" class="${state.gold < crop.seedPrice ? 'cant-afford' : ''}" aria-disabled="${state.gold < crop.seedPrice}">购买</button></div>`
-    ).join('') + [['hoe', '精钢锄', '锄地体力减半', 400], ['water', '铁水壶', '面前三格浇水', 600]].map(([key, name, desc, price]) => `<div class="shop-row" data-shop-row="${key}"><span class="row-icon" aria-hidden="true">${icons[key]}</span><span class="row-copy"><strong>${name}</strong><small>${desc}</small></span><span class="row-price ${state.gold < price && !state.upgrades[key] ? 'unaffordable' : ''}">${price} G</span><button type="button" data-upgrade="${key}" class="${state.gold < price && !state.upgrades[key] ? 'cant-afford' : ''}" aria-disabled="${state.gold < price}" ${state.upgrades[key] ? 'disabled' : ''}>${state.upgrades[key] ? '已购买' : '购买'}</button></div>`).join('') + `<div class="shop-row"><span class="row-icon" aria-hidden="true">▣</span><span class="row-copy"><strong>饭团</strong><small>恢复 15 体力</small></span><span class="row-price ${state.gold < 20 ? 'unaffordable' : ''}">20 G</span><button type="button" data-snack="buy" class="${state.gold < 20 ? 'cant-afford' : ''}" aria-disabled="${state.gold < 20}">购买</button></div>`;
+    document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) => {
+      const total = crop.seedPrice * buyAmounts[key];
+      return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
+    }).join('') + [['hoe', '精钢锄', '锄地体力减半', 400]].map(([key, name, desc, price]) => `<div class="shop-row" data-shop-row="${key}"><span class="row-icon" aria-hidden="true">${icons[key]}</span><span class="row-copy"><strong>${name}</strong><small>${desc}</small></span><span class="row-price ${state.gold < price && !state.upgrades[key] ? 'unaffordable' : ''}">${price} G</span><button type="button" data-upgrade="${key}" class="${state.gold < price && !state.upgrades[key] ? 'cant-afford' : ''}" aria-disabled="${state.gold < price}" ${state.upgrades[key] ? 'disabled' : ''}>${state.upgrades[key] ? '已购买' : '购买'}</button></div>`).join('') + `<div class="shop-row"><span class="row-icon" aria-hidden="true">▣</span><span class="row-copy"><strong>饭团</strong><small>恢复 15 体力</small></span><span class="row-price ${state.gold < 20 ? 'unaffordable' : ''}">20 G</span><button type="button" data-snack="buy" class="${state.gold < 20 ? 'cant-afford' : ''}" aria-disabled="${state.gold < 20}">购买</button></div>`;
+    document.getElementById('bag-value').textContent = `背包农产品总价值：${Object.entries(F.CROPS).reduce((sum, [key, crop]) => sum + state.bag[key] * crop.sellPrice, 0)} G`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
     document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" data-deliver="${order.id}">交付</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
     document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>完成订单：${state.stats.orders}</p><p>已玩天数：${state.stats.days}</p>`;
@@ -828,20 +819,18 @@
     const dt = Math.min(50, now - (lastFrame || now));
     lastFrame = now;
     tickInput(now);
-    if (waterArc && now >= waterArc.until) {
-      for (let i = 0; i < 5; i++) addParticle(waterArc.toX + (i - 2) * 5, waterArc.toY, (i - 2) * 0.055, -0.15 - i * 0.018, 300, '#75d8ed', 'drop');
-      waterArc = null;
-    }
     if (route.length && !input.direction && now >= routeNext) {
       move(route.shift());
       routeNext = now + 140;
-      if (!route.length) handle({ ok: true, message: '已走到目标地块旁', events: [] }, false);
+      if (!route.length) {
+        if (homeRoute) { homeRoute = false; document.getElementById('home-confirm').hidden = false; handle({ ok: true, message: '已到家门口，今晚睡觉吗？', events: [] }, false); }
+        else handle({ ok: true, message: '已走到目标地块旁', events: [] }, false);
+      }
     }
     for (const particle of particles) {
       particle.age += dt;
       particle.x += particle.vx * dt;
       particle.y += particle.vy * dt;
-      if (particle.kind === 'drop') particle.vy += 0.0018 * dt;
       if (particle.kind === 'snow') particle.x += Math.sin(now / 240 + particle.y) * 0.4;
       if (particle.kind === 'rain' && particle.y > 540) { particle.age = particle.life; addParticle(particle.x, 541, 0, 0, 120, '#d8efec', 'splash'); }
       if (particle.kind === 'snow' && particle.y > 540) particle.age = particle.life;
@@ -873,8 +862,9 @@
       const previousWeather = state.weather;
       const outcome = F.sleep(state);
       seasonAfterSleep = F.seasonDay(state) === 1;
-      if (state.weather !== previousWeather) enqueueToast(state.weather === 'rain' ? '天气转雨，田地已自动浇水' : '雨停转晴，记得给作物浇水', 'info');
+      if (state.weather !== previousWeather) enqueueToast(state.weather === 'rain' ? '天气转雨，作物生长加速' : '雨停转晴，作物照常生长', 'info');
       if (state.weather === 'rain') sound('rain');
+      enqueueToast(`昨夜损失 ${outcome.raid.lost} 格作物，损坏 ${outcome.raid.fences} 段栅栏`, outcome.raid.lost ? 'alert' : 'info');
       handle(outcome, true);
     }
     if (sleepStart && now - sleepStart >= 1400) { sleepStart = 0; if (seasonAfterSleep) { showSeasonBanner(); seasonAfterSleep = false; } }
@@ -897,6 +887,7 @@
 
   function selectTool(key) {
     initAudio();
+    if (key !== 'build') buildChoice = null;
     const outcome = F.selectTool(state, key);
     if (outcome.ok) { toolBounce = key; bounceUntil = performance.now() + 800; }
     handle(outcome, true);
@@ -907,7 +898,7 @@
     document.getElementById('codex-panel').classList.remove('closing');
     const list = document.getElementById('codex-list');
     const sorted = Object.entries(F.CROPS).sort((a, b) => b[1].sellPrice / b[1].seedPrice - a[1].sellPrice / a[1].seedPrice);
-    list.innerHTML = sorted.map(([key, crop]) => `<div class="codex-row"><canvas width="48" height="48" data-preview="${key}"></canvas><div><strong>${crop.name}</strong>${crop.days} 天 · 种子 ${crop.seedPrice} G · 售价 ${crop.sellPrice} G · 每 G 投入回收 ${(crop.sellPrice / crop.seedPrice).toFixed(2)} G</div></div>`).join('');
+    list.innerHTML = sorted.map(([key, crop]) => `<div class="codex-row"><canvas width="48" height="48" data-preview="${key}"></canvas><div><strong>${crop.name}</strong>${crop.days} 天（雨天加速） · 种子 ${crop.seedPrice} G · 售价 ${crop.sellPrice} G · 每 G 投入回收 ${(crop.sellPrice / crop.seedPrice).toFixed(2)} G</div></div>`).join('');
     for (const preview of list.querySelectorAll('canvas')) {
       const context = preview.getContext('2d');
       context.imageSmoothingEnabled = false;
@@ -942,6 +933,7 @@
     }
     const direction = directionKeys[event.key];
     if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
+    if (event.key.toLowerCase() === 'h') { event.preventDefault(); goHome(); return; }
     if (event.key >= '1' && event.key <= '4') { selectTool(keys[Number(event.key) - 1]); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
@@ -953,34 +945,72 @@
     if (directionKeys[event.key]) releaseDirection(`key:${event.key}`);
     if (event.key === ' ' || event.key === 'Enter') input.use = false;
   });
-  window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; });
+  window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; homeRoute = false; });
   document.getElementById('tools').addEventListener('click', event => {
     const unlock = event.target.closest('[data-unlock]');
     if (unlock) { const row = document.querySelector(`[data-shop-row="${unlock.dataset.unlock}"]`); row?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }); row?.classList.add('shop-highlight'); setTimeout(() => row?.classList.remove('shop-highlight'), 1000); enqueueToast('工具尚未解锁，请在商店购买升级', 'info'); return; }
     const button = event.target.closest('[data-tool]');
     if (button) selectTool(button.dataset.tool);
   });
+  document.getElementById('build-panel').addEventListener('click', event => {
+    const button = event.target.closest('[data-build]');
+    if (button) { buildChoice = button.dataset.build; handle({ ok: true, message: `准备放置${F.BUILDINGS[buildChoice].name}`, events: [] }, false); }
+  });
   document.getElementById('crop-options').addEventListener('click', event => {
     const button = event.target.closest('[data-crop]');
-    if (button) { initAudio(); handle(F.selectCrop(state, button.dataset.crop), true); }
+    if (button) { initAudio(); handle(F.selectCrop(state, button.dataset.crop), true); if (!state.seeds[button.dataset.crop]) { const row = document.querySelector(`[data-shop-row="${button.dataset.crop}"]`); row?.scrollIntoView?.({ behavior: 'smooth', block: 'center' }); row?.classList.add('shop-highlight'); enqueueToast('种子用完了，去商店补货', 'info'); } }
   });
   document.getElementById('shop').addEventListener('click', event => {
+    const step = event.target.closest('[data-buy-step]');
+    if (step) { buyAmounts[step.dataset.buyStep] = Math.max(1, buyAmounts[step.dataset.buyStep] + Number(step.dataset.delta)); render(); return; }
+    const five = event.target.closest('[data-buy-five]');
+    if (five) { buyAmounts[five.dataset.buyFive] += 5; render(); return; }
     const button = event.target.closest('[data-buy]');
-    if (button) { initAudio(); const price = F.CROPS[button.dataset.buy].seedPrice; const outcome = F.buySeed(state, button.dataset.buy, 1); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
+    if (button) { initAudio(); const price = F.CROPS[button.dataset.buy].seedPrice * buyAmounts[button.dataset.buy]; const outcome = F.buySeed(state, button.dataset.buy, buyAmounts[button.dataset.buy]); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
     const upgrade = event.target.closest('[data-upgrade]');
-    if (upgrade) { const outcome = F.buyUpgrade(state, upgrade.dataset.upgrade); if (!outcome.ok) { outcome.message = `金币不足，还差 ${({ hoe: 400, water: 600 })[upgrade.dataset.upgrade] - state.gold} G`; sound('error'); } handle(outcome, true); }
+    if (upgrade) { const outcome = F.buyUpgrade(state, upgrade.dataset.upgrade); if (!outcome.ok) { outcome.message = `金币不足，还差 ${({ hoe: 400 })[upgrade.dataset.upgrade] - state.gold} G`; sound('error'); } handle(outcome, true); }
     if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) { outcome.message = `金币不足，还差 ${20 - state.gold} G`; sound('error'); } handle(outcome, true); }
   });
   document.getElementById('bag').addEventListener('click', event => {
+    const one = event.target.closest('[data-sell-one]');
+    const all = event.target.closest('[data-sell-crop]');
+    if (one || all) {
+      const key = (one || all).dataset[one ? 'sellOne' : 'sellCrop'];
+      const outcome = F.sellCrop(state, key, one ? 1 : state.bag[key]);
+      if (outcome.warning && !orderWarningShown) { enqueueToast('卖出后不足当前订单所需数量', 'alert'); orderWarningShown = true; }
+      handle(outcome, true); return;
+    }
     if (event.target.closest('[data-eat]')) { const outcome = F.eatSnack(state); if (!outcome.ok) sound('error'); handle(outcome, true); }
   });
   document.getElementById('sell-all').addEventListener('click', () => {
-    initAudio();
+    const preview = F.salePreview(state);
+    if (!preview.count) { enqueueToast('背包里没有可卖的富余作物', 'alert'); return; }
+    document.getElementById('sell-confirm-text').textContent = `一键卖出 ${preview.count} 份，共 ${preview.total} G；默认保留当前订单所需数量。`;
+    document.getElementById('sell-confirm').hidden = false;
+  });
+  document.getElementById('sell-confirm-yes').addEventListener('click', () => {
     const outcome = F.sellAll(state);
+    document.getElementById('sell-confirm').hidden = true;
     if (outcome.ok) { goldUntil = performance.now() + 500; sound('sell'); }
-    else sound('error');
     handle(outcome, true);
   });
+  document.getElementById('sell-confirm-no').addEventListener('click', () => { document.getElementById('sell-confirm').hidden = true; });
+  function goHome() {
+    if (homeRoute) { route = []; homeRoute = false; enqueueToast('已取消回家', 'info'); return; }
+    input.direction = null;
+    input.use = false;
+    document.getElementById('home-confirm').hidden = true;
+    const path = F.findPath(state, 0, 3);
+    if (!path) { enqueueToast('家门口暂时无法到达', 'alert'); return; }
+    if (!path.length) { document.getElementById('home-confirm').hidden = false; return; }
+    route = path;
+    homeRoute = true;
+    routeNext = performance.now();
+    enqueueToast('正在回家，按方向键可取消', 'info');
+  }
+  document.getElementById('go-home').addEventListener('click', goHome);
+  document.getElementById('home-sleep').addEventListener('click', () => { document.getElementById('home-confirm').hidden = true; if (!sleepStart) { sleepStart = performance.now(); sleepPending = true; } });
+  document.getElementById('home-cancel').addEventListener('click', () => { document.getElementById('home-confirm').hidden = true; });
   document.getElementById('sleep').addEventListener('click', () => {
     initAudio();
     if (!sleepStart) { sleepStart = performance.now(); sleepPending = true; }
@@ -1001,6 +1031,7 @@
     if (x < 0 || x >= F.WIDTH || y < 0 || y >= F.HEIGHT) return;
     input.direction = null;
     route = [];
+    homeRoute = false;
     const distance = Math.abs(x - state.farmer.x) + Math.abs(y - state.farmer.y);
     if (distance === 1) {
       state.farmer.facing = Object.entries(F.DIRECTIONS).find(([, [dx, dy]]) => state.farmer.x + dx === x && state.farmer.y + dy === y)[0];
@@ -1046,18 +1077,22 @@
     seasonAfterSleep = false;
     particles = [];
     route = [];
+    homeRoute = false;
     input.direction = null;
     input.use = false;
     state = F.createGame();
     goldDisplay = state.gold;
     goldStart = 0;
     journal = ['新的农场生活开始了！'];
+    orderWarningShown = false;
     lowEnergyNotified = false;
     showSeasonBanner();
     handle({ ok: true, message: '新游戏已开始', events: [] }, true);
   });
   document.getElementById('hint').textContent = '用 WASD 或方向键移动；面向地块，按空格或回车使用当前工具。';
   updateMute();
+  for (const message of migrationMessages) enqueueToast(message, 'info');
+  if (migrationMessages.length) save();
   if (F.seasonDay(state) === 1) showSeasonBanner();
   render();
   requestAnimationFrame(frame);

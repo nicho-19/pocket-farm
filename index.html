@@ -10,10 +10,10 @@
   <div class="page">
     <header class="masthead">
       <div><span class="eyebrow">一方小田 · 四季慢生活</span><h1>口袋田园 <span>✿</span></h1></div>
-      <div class="header-actions"><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="orders-button" class="quiet-button" type="button">订单</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
+      <div class="header-actions"><button id="go-home" class="quiet-button" type="button">⌂ 回家</button><button id="mute" class="quiet-button" type="button" aria-pressed="false">🔊 音效</button><button id="orders-button" class="quiet-button" type="button">订单</button><button id="codex" class="quiet-button" type="button">图鉴</button><button id="new-game" class="quiet-button" type="button">新游戏</button></div>
     </header>
     <section class="status-bar" aria-label="农场状态">
-      <div class="status-group status-day"><span id="season-dot" class="season-dot" aria-hidden="true"></span><strong id="date"></strong><span id="weather"></span><span id="tomorrow"></span></div>
+      <div class="status-group status-day"><span id="season-dot" class="season-dot" aria-hidden="true"></span><strong id="date"></strong><span id="weather"></span><span id="tomorrow"></span><span id="raid-forecast" aria-live="polite"></span></div>
       <div class="status-group status-resources"><div class="gold-item"><span class="coin-icon" aria-hidden="true"></span><span>金币</span><strong id="gold"></strong></div><div id="energy-item" class="energy-item"><span>体力 <b id="energy-text"></b></span><div class="energy-track" aria-hidden="true"><div id="energy-fill"></div></div></div></div>
     </section>
     <main class="main-grid">
@@ -23,7 +23,7 @@
         <div class="tool-panel">
           <div class="panel-heading"><h2>农具与种子</h2><span>按 1–4 切换工具</span></div>
           <div id="tools" class="tools"></div>
-          <div id="crop-options" class="crop-options"></div>
+          <div id="crop-options" class="crop-options"></div><div id="build-panel" class="build-panel" hidden><strong>选择防御道具</strong><button type="button" data-build="scarecrow">稻草人 · 150 G</button><button type="button" data-build="fence">木栅栏 · 40 G</button><span>面前草地高亮，按使用键放置；切工具取消</span></div>
         </div>
         <p id="hint" class="hint" role="status"></p>
       </section>
@@ -31,7 +31,7 @@
         <section class="side-card intro-card">
           <div class="panel-heading"><h2>今天的农事</h2></div>
           <h2>把小日子种出来。</h2>
-          <p>移动到地块旁，面向它，依次开垦、播种、浇水。睡一觉，等待收成。</p>
+          <p>移动到地块旁，面向它，依次开垦、播种。作物每天生长，雨天更快；夜里要防乌鸦与野猪。</p>
           <div class="key-help"><kbd>W A S D</kbd><span>移动 / 转向</span><kbd>空格</kbd><span>对前方操作</span></div>
           <button id="sleep" class="primary-button" type="button">☾ &nbsp; 睡觉 · 进入下一天</button>
         </section>
@@ -42,7 +42,7 @@
         <section class="side-card shop-card">
           <div class="panel-heading"><h2>村口商店</h2><span>买种子，卖收成</span></div>
           <div id="shop" class="shop-list"></div>
-          <button id="sell-all" class="sell-button" type="button">出货箱 · 全部卖出</button>
+          <div id="bag-value" class="bag-value"></div><button id="sell-all" class="sell-button" type="button">出货箱 · 全部卖出</button>
         </section>
         <section class="side-card log-card">
           <div class="panel-heading"><h2>田园日记</h2><span>最近发生的事</span></div>
@@ -52,7 +52,7 @@
     </main>
     <footer>一格一格耕耘，过好每一天。 · 致敬《星露谷物语》</footer>
   </div>
-  <div id="season-banner" class="season-banner" role="status" aria-live="polite" hidden></div>
+  <div id="home-confirm" class="confirm-bar" hidden>已到家门口 <button id="home-sleep" type="button">睡觉</button><button id="home-cancel" type="button">再逛逛</button></div><div id="sell-confirm" class="confirm-bar" hidden><span id="sell-confirm-text"></span><button id="sell-confirm-yes" type="button">确认卖出</button><button id="sell-confirm-no" type="button">取消</button></div><div id="season-banner" class="season-banner" role="status" aria-live="polite" hidden></div>
   <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
   <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
   <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="modal-heading"><h2>今日订单</h2><button id="close-orders" class="close-button" type="button" aria-label="关闭订单板">×</button></div><div id="orders-list"></div></div></div>

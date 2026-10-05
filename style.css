@@ -135,3 +135,18 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 @media(max-width:760px){.main-grid{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--space-3)}.sidebar .side-card{margin:0}.touch-controls{display:flex}}
 @media(max-width:520px){.page{padding:var(--space-3)}.masthead{flex-wrap:wrap}h1{font-size:30px}.header-actions .quiet-button{font-size:var(--text-xs)}.status-bar{padding:var(--space-3)}.status-day,.status-resources{width:100%;justify-content:space-between}.status-day>span:not(.season-dot){padding-left:var(--space-2)}.energy-item{grid-template-columns:auto 95px}.sidebar{display:block}.sidebar .side-card{margin-top:var(--space-3)}.tool{font-size:var(--text-xs)}.shop-row{flex-wrap:wrap}.row-copy{flex-basis:45%}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}.season-banner{animation:season-fade 1.92s both;animation-duration:1.92s!important}@keyframes season-fade{0%,100%{opacity:0}8.3%,91.7%{opacity:1}}}
+
+#raid-forecast.danger{color:var(--danger);font-weight:bold;background:var(--danger-light);border-radius:var(--radius-sm)}
+.build-panel{display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-2);margin-top:var(--space-3);padding:var(--space-2);background:var(--grass-light);border-radius:var(--radius-sm)}
+.build-panel[hidden],.confirm-bar[hidden]{display:none}
+.build-panel button,.confirm-bar button{min-height:44px;border:1px solid var(--wood-light);border-radius:var(--radius-sm);background:var(--cream);padding:var(--space-2)}
+.build-panel span{font-size:var(--text-sm)}
+.quantity-control{display:flex;align-items:center;gap:var(--space-1)}
+.quantity-control button{min-width:44px}
+.bag-value{padding:var(--space-2);font-weight:bold}
+.confirm-bar{position:fixed;bottom:var(--space-3);left:50%;transform:translateX(-50%);z-index:30;width:min(92vw,620px);display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:var(--space-2);padding:var(--space-3);background:var(--cream);border:2px solid var(--wood-light);border-radius:var(--radius-md);box-shadow:var(--shadow-high)}
+.home-alert{outline:3px solid var(--danger);font-weight:bold}
+@media(prefers-reduced-motion:no-preference){.home-alert{animation:home-pulse 1.5s ease-in-out infinite}@keyframes home-pulse{50%{box-shadow:0 0 0 5px var(--danger-light)}}}
+
+.crop-choice{position:relative}.buy-badge{display:inline-block;margin-left:var(--space-1);padding:2px 5px;border-radius:var(--radius-sm);background:var(--wheat-light);color:var(--wood-dark);font-size:var(--text-xs)}
+.bag-row{flex-wrap:wrap}.bag-row button{min-height:44px}
