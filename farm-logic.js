@@ -1,8 +1,8 @@
 (function (root) {
   'use strict';
 
-  const WIDTH = 20;
-  const HEIGHT = 14;
+  const WIDTH = 40;
+  const HEIGHT = 28;
   const HEALTH_MAX = 100;
   const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
@@ -37,20 +37,30 @@
   };
   const WEAPONS = { none: { name: '徒手', price: 0, damage: 0, counter: 0 }, club: { name: '木棍', price: 100, damage: 1, counter: 0.30 }, axe: { name: '石斧', price: 300, damage: 2, counter: 0.55 }, sword: { name: '铁剑', price: 800, damage: 3, counter: 0.80 } };
   const LAYOUT = {
-    home: { x: 1, y: 1 }, homeDoor: { x: 1, y: 2 },
-    huts: [{ x: 3, y: 1 }, { x: 5, y: 1 }, { x: 6, y: 1 }],
-    square: { x: 3, y: 3 }, farm: { left: 4, top: 4, right: 15, bottom: 12 },
-    oldPlots: { x: 4, y: 4, width: 12, height: 9 },
-    pond: { left: 16, top: 9, right: 18, bottom: 12 },
-    woods: { left: 8, top: 0, right: 19, bottom: 2, pathX: 13 },
-    gate: { x: 10, y: 13 }, raidSpawns: [{ x: 9, y: 3 }, { x: 13, y: 3 }, { x: 18, y: 3 }]
+    v7Anchor: { x: 10, y: 7 }, oldWorld: { left: 10, top: 7, right: 29, bottom: 20 },
+    home: { x: 11, y: 8 }, homeDoor: { x: 11, y: 9 },
+    huts: [{ x: 13, y: 8 }, { x: 15, y: 8 }, { x: 16, y: 8 }],
+    square: { x: 13, y: 10 },
+    farm: { left: 14, top: 11, right: 34, bottom: 25 },
+    farmAreas: [
+      { left: 14, top: 11, right: 25, bottom: 19 },
+      { left: 27, top: 11, right: 34, bottom: 15 },
+      { left: 14, top: 21, right: 25, bottom: 25 }
+    ],
+    oldPlots: { x: 14, y: 11, width: 12, height: 9 },
+    oldWoods: { left: 18, top: 7, right: 29, bottom: 9, pathX: 23 },
+    woods: { left: 6, top: 1, right: 35, bottom: 9, pathX: 23, paths: [13, 23] },
+    pond: { left: 26, top: 16, right: 32, bottom: 20 },
+    meadow: { left: 32, top: 7, right: 38, bottom: 15 },
+    gate: { x: 20, y: 27 },
+    raidSpawns: [{ x: 9, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 10 }]
   };
-  const VILLAGERS = { mayor: { name: '村长', points: [[2, 2], [2, 3], [3, 3]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[4, 2], [4, 3], [3, 3]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[6, 2], [6, 3], [5, 3]], gift: '木栅栏×2' } };
+  const VILLAGERS = { mayor: { name: '村长', points: [[12, 9], [12, 10], [13, 10]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[14, 9], [14, 10], [13, 10]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[16, 9], [16, 10], [15, 10]], gift: '木栅栏×2' } };
   const RESOURCE_NODES = [
-    ...[[8, 2], [10, 2], [12, 2], [15, 2], [17, 2], [19, 2]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
-    ...[[9, 2], [16, 2]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
-    ...[[11, 2], [18, 2]].map(([x, y], i) => ({ id: `stone-${i + 1}`, kind: 'stone', x, y, maxCharges: 2 })),
-    ...[[16, 10], [16, 12]].map(([x, y], i) => ({ id: `fish-${i + 1}`, kind: 'fish', x, y, maxCharges: 2 }))
+    ...[[18, 9], [20, 9], [22, 9], [25, 9], [27, 9], [29, 9], [7, 6], [10, 6], [16, 6], [30, 6], [31, 6], [35, 6]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
+    ...[[19, 9], [26, 9], [8, 6], [17, 6], [32, 6]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
+    ...[[21, 9], [28, 9], [11, 6], [33, 6], [34, 6]].map(([x, y], i) => ({ id: `stone-${i + 1}`, kind: 'stone', x, y, maxCharges: 2 })),
+    ...[[26, 17], [26, 19], [29, 16], [32, 18]].map(([x, y], i) => ({ id: `fish-${i + 1}`, kind: 'fish', x, y, maxCharges: 2 }))
   ];
   function resourceNodeAt(x, y) { return RESOURCE_NODES.find(node => node.x === x && node.y === y) || null; }
   function freshResourceNodes() { return Object.fromEntries(RESOURCE_NODES.map(node => [node.id, { charges: node.maxCharges, respawnDay: 0 }])); }
@@ -59,10 +69,13 @@
     if (!inBounds(x, y)) return 'outside';
     if (x === LAYOUT.home.x && y === LAYOUT.home.y || LAYOUT.huts.some(hut => hut.x === x && hut.y === y)) return 'house';
     if (inArea(x, y, LAYOUT.pond)) return 'pond';
-    if (inArea(x, y, LAYOUT.woods) && x !== LAYOUT.woods.pathX) return 'tree';
-    if (inArea(x, y, LAYOUT.woods)) return 'path';
-    if (inArea(x, y, LAYOUT.farm)) return 'farm';
-    if (x <= 6 && y <= 4) return 'residential';
+    const wooded = inArea(x, y, LAYOUT.oldWoods) ||
+      x >= LAYOUT.woods.left && x <= LAYOUT.woods.right && y >= LAYOUT.woods.top && y <= 6;
+    if (wooded && !LAYOUT.woods.paths.includes(x)) return 'tree';
+    if (wooded) return 'path';
+    if (LAYOUT.farmAreas.some(area => inArea(x, y, area))) return 'farm';
+    if (inArea(x, y, LAYOUT.meadow)) return 'meadow';
+    if (x >= 10 && x <= 16 && y >= 7 && y <= 11) return 'residential';
     return 'grass';
   }
   function canWalk(state, x, y) { return inBounds(x, y) && !['house', 'pond', 'tree'].includes(terrainAt(x, y)) && state.plots[y][x].structure !== 'fence'; }
@@ -89,7 +102,7 @@
 
   function createGame() {
     return {
-      version: 7,
+      version: 8,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -100,7 +113,7 @@
       villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
       fenceStock: 0,
       scarecrowStock: 0,
-      farmer: { x: 5, y: 3, facing: 'down' },
+      farmer: { x: 15, y: 10, facing: 'down' },
       tool: 'hoe',
       selectedCrop: 'carrot',
       seeds: { ...cropCounts(), carrot: 3 },
@@ -119,22 +132,31 @@
   }
 
   function migrateSave(saved) {
-    const legacy = saved?.version <= 5 && Array.isArray(saved.plots) &&
-      saved.plots.length === LAYOUT.oldPlots.height &&
-      saved.plots.every(row => Array.isArray(row) && row.length === LAYOUT.oldPlots.width);
-    if (!saved || ![1, 2, 3, 4, 5, 6, 7].includes(saved.version) ||
-        !Array.isArray(saved.plots) ||
-        !((saved.plots.length === HEIGHT && saved.plots.every(row => Array.isArray(row) && row.length === WIDTH)) || legacy) ||
-        !saved.farmer || !(legacy ? saved.farmer.x >= 0 && saved.farmer.x < LAYOUT.oldPlots.width && saved.farmer.y >= 0 && saved.farmer.y < LAYOUT.oldPlots.height : inBounds(saved.farmer.x, saved.farmer.y)) ||
+    const originalVersion = saved?.version;
+    const shape = (width, height) => Array.isArray(saved?.plots) && saved.plots.length === height &&
+      saved.plots.every(row => Array.isArray(row) && row.length === width);
+    const legacy = originalVersion <= 5 && shape(12, 9);
+    const v7Shape = originalVersion <= 7 && shape(20, 14);
+    const v8Shape = originalVersion === 8 && shape(WIDTH, HEIGHT);
+    const farmerInShape = saved?.farmer && (legacy ? saved.farmer.x >= 0 && saved.farmer.x < 12 && saved.farmer.y >= 0 && saved.farmer.y < 9 :
+      v7Shape ? saved.farmer.x >= 0 && saved.farmer.x < 20 && saved.farmer.y >= 0 && saved.farmer.y < 14 :
+      v8Shape && inBounds(saved.farmer.x, saved.farmer.y));
+    if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8].includes(originalVersion) ||
+        !(legacy || v7Shape || v8Shape) || !farmerInShape ||
         !DIRECTIONS[saved.farmer.facing] || !(TOOLS[saved.tool] || saved.tool === 'water') ||
         !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
         !Number.isFinite(saved.gold)) return null;
     if (legacy) {
-      const plots = Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot));
-      for (let y = 0; y < LAYOUT.oldPlots.height; y++) for (let x = 0; x < LAYOUT.oldPlots.width; x++)
-        plots[LAYOUT.oldPlots.y + y][LAYOUT.oldPlots.x + x] = saved.plots[y][x];
+      const plots = Array.from({ length: 14 }, () => Array.from({ length: 20 }, makePlot));
+      for (let y = 0; y < 9; y++) for (let x = 0; x < 12; x++) plots[4 + y][4 + x] = saved.plots[y][x];
       saved.plots = plots;
-      saved.farmer = { ...saved.farmer, ...LAYOUT.homeDoor };
+    }
+    if (originalVersion <= 7) {
+      const plots = Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot));
+      for (let y = 0; y < 14; y++) for (let x = 0; x < 20; x++)
+        plots[LAYOUT.v7Anchor.y + y][LAYOUT.v7Anchor.x + x] = saved.plots[y][x];
+      saved.plots = plots;
+      saved.farmer = { ...LAYOUT.homeDoor, facing: saved.farmer.facing };
     }
     delete saved.energy;
     saved.health = Number.isFinite(saved.health) ? Math.max(0, Math.min(HEALTH_MAX, saved.health)) : HEALTH_MAX;
@@ -165,7 +187,7 @@
     saved.tomorrow = saved.tomorrow === 'rain' ? 'rain' : 'sunny';
     saved.snacks = Number.isInteger(saved.snacks) && saved.snacks >= 0 ? saved.snacks : 0;
     const refund = !!saved.upgrades?.water;
-    const hoeRefund = saved.version <= 4 && !!saved.upgrades?.hoe;
+    const hoeRefund = originalVersion <= 4 && !!saved.upgrades?.hoe;
     delete saved.upgrades;
     if (refund) {
       saved.gold += 600;
@@ -187,7 +209,7 @@
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 7;
+    saved.version = 8;
     return saved;
   }
 
@@ -219,6 +241,14 @@
   function screenToCell(clientX, clientY, rect, camera, viewportWidth, viewportHeight, tile = 48) {
     return { x: Math.floor(((clientX - rect.left) / rect.width * viewportWidth + camera.x) / tile),
       y: Math.floor(((clientY - rect.top) / rect.height * viewportHeight + camera.y) / tile) };
+  }
+  function visibleCellRange(camera, viewportWidth, viewportHeight, tile = 48, margin = 1) {
+    return {
+      left: Math.max(0, Math.floor(camera.x / tile) - margin),
+      top: Math.max(0, Math.floor(camera.y / tile) - margin),
+      right: Math.min(WIDTH - 1, Math.floor((camera.x + viewportWidth - 1) / tile) + margin),
+      bottom: Math.min(HEIGHT - 1, Math.floor((camera.y + viewportHeight - 1) / tile) + margin)
+    };
   }
 
   function result(ok, message, events) {
@@ -713,7 +743,7 @@
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
     act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };

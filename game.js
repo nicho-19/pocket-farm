@@ -62,7 +62,10 @@
     leafGreen: '#699a50', leafLight: '#a6c66d', dust: '#b58a62', star: '#ffe58a',
     hutBlue: '#708baf', hutRed: '#bc745a', hutGreen: '#617c55', whiteFlash: '#fffdf5', cloudShadow: '#3d5b5528',
     springMid: '#d391a7', summerMid: '#4b8c50', autumnMid: '#c99d50',
-    springTop: '#f2bdc5', summerTop: '#78b263', autumnTop: '#edce72', capeLight: '#503344', capeDark: '#422c3d'
+    springTop: '#f2bdc5', summerTop: '#78b263', autumnTop: '#edce72', capeLight: '#503344', capeDark: '#422c3d',
+    skin: '#e8ae7a', skinLight: '#edb881', ink: '#3c4540', hat: '#ccaa68', hatBrim: '#b48b56', hatBand: '#795a3d',
+    denim: '#557f9a', denimDark: '#315c73', denimLight: '#739fb2', shirt: '#426f82', pants: '#775c4b', shoes: '#45423f',
+    beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1'
   };
   const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
@@ -422,9 +425,9 @@
     label('村口', L.gate.x * TILE + TILE - 23, L.gate.y * TILE - 18, WORLD_COLORS.woodDark, 10);
   }
 
-  function drawAmbient(now) {
+  function drawAmbient(now, visible) {
     const p = palette[F.season(state)];
-    for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+    for (let y = visible.top; y <= visible.bottom; y++) for (let x = visible.left; x <= visible.right; x++) {
       const px = FIELD_X + x * TILE + 7 + Math.floor(hash(x, y, 40) * 34);
       const py = FIELD_Y + y * TILE + 12 + Math.floor(hash(x, y, 50) * 30);
       const sway = Math.sin(now / 680 + x * 1.7 + y * 2.3) * 1.5;
@@ -434,7 +437,8 @@
       const cloudX = (((now + cloud * 2700) % 10500) / 10500) * (WORLD_WIDTH + 280) - 190;
       const cloudY = 170 + cloud * 155;
       ctx.fillStyle = WORLD_COLORS.cloudShadow;
-      for (let puff = 0; puff < 4; puff++) { ctx.beginPath(); ctx.ellipse(cloudX + puff * 38, cloudY + (puff % 2) * 8, 74 - puff * 5, 19, -0.12, 0, Math.PI * 2); ctx.fill(); }
+      if (cloudX + 220 >= camera.x && cloudX - 90 <= camera.x + SCENE_WIDTH && cloudY + 30 >= camera.y && cloudY - 30 <= camera.y + SCENE_HEIGHT)
+        for (let puff = 0; puff < 4; puff++) { ctx.beginPath(); ctx.ellipse(cloudX + puff * 38, cloudY + (puff % 2) * 8, 74 - puff * 5, 19, -0.12, 0, Math.PI * 2); ctx.fill(); }
     }
     const season = F.season(state);
     if (season !== '冬') for (let i = 0; i < 2; i++) {
@@ -442,6 +446,7 @@
       const x = F.LAYOUT.farm.left * TILE + 55 + (now / 18 + i * 260) % ((F.LAYOUT.farm.right - F.LAYOUT.farm.left) * TILE);
       const y = F.LAYOUT.farm.top * TILE + 45 + i * 92 + Math.sin(t) * 24;
       const color = season === '秋' ? (i ? WORLD_COLORS.autumnLeafLight : WORLD_COLORS.autumnLeaf) : (i ? WORLD_COLORS.springFlower : WORLD_COLORS.summerFlower);
+      if (x < camera.x - TILE || x > camera.x + SCENE_WIDTH + TILE || y < camera.y - TILE || y > camera.y + SCENE_HEIGHT + TILE) continue;
       ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 1.7) * 0.6);
       if (season === '秋') { box(-4, -2, 8, 4, color); pixelLine(-3, 0, 4, 0, WORLD_COLORS.woodGrain); }
       else { box(-6, -2, 5, 4, color); box(2, -2, 5, 4, color); box(-1, 0, 2, 4, WORLD_COLORS.woodDark); }
@@ -478,7 +483,7 @@
     }
   }
 
-  function drawPondRipples(now) {
+  function drawPondRipples(now, visible) {
     const L = F.LAYOUT.pond;
     for (let i = 0; i < 3; i++) {
       const px = (L.left + 0.8 + i) * TILE;
@@ -488,7 +493,7 @@
       ctx.beginPath(); ctx.ellipse(px, py, 3 + age * 16, 2 + age * 7, 0, 0, Math.PI * 2);
       ctx.strokeStyle = '#e7f4e4'; ctx.lineWidth = 1; ctx.stroke();
     }
-    for (let y = L.top; y <= L.bottom; y++) for (let x = L.left; x <= L.right; x++) if (hash(x, y, 170) > 0.28) {
+    for (let y = Math.max(L.top, visible.top); y <= Math.min(L.bottom, visible.bottom); y++) for (let x = Math.max(L.left, visible.left); x <= Math.min(L.right, visible.right); x++) if (hash(x, y, 170) > 0.28) {
       const phase = (Math.sin(now / 720 + hash(x, y, 171) * 8) + 1) / 2;
       ctx.globalAlpha = 0.2 + phase * 0.55;
       const py = y * TILE + 13 + hash(x, y, 172) * 24;
@@ -497,8 +502,9 @@
     ctx.globalAlpha = 1;
   }
 
-  function drawResourceNodes(now) {
+  function drawResourceNodes(now, visible) {
     for (const node of F.RESOURCE_NODES) {
+      if (node.x < visible.left || node.x > visible.right || node.y < visible.top || node.y > visible.bottom) continue;
       const status = state.resourceNodes[node.id];
       const x = node.x * TILE, y = node.y * TILE;
       if (node.kind === 'tree') {
@@ -724,29 +730,37 @@
     const y = FIELD_Y + state.farmer.y * TILE + 5 + (walking ? -(frame % 2) : Math.floor(now / 900) % 2);
     const facing = state.farmer.facing;
     shadow(x + 21, y + 39, 16, 5);
-    box(x + 10, y + 29, 8, 7 + feet, '#775c4b');
-    box(x + 23, y + 29, 8, 7 - feet, '#775c4b');
-    box(x + 9, y + 35 + feet, 10, 4, '#45423f');
-    box(x + 22, y + 35 - feet, 10, 4, '#45423f');
-    box(x + 8, y + 20, 25, 13, facing === 'up' ? '#426f82' : '#557f9a');
-    box(x + 11, y + 22, 18, 2, '#739fb2');
-    pixelLine(x + 12, y + 26.5, x + 16, y + 31, '#315c73');
+    box(x + 10, y + 29, 8, 7 + feet, WORLD_COLORS.pants);
+    box(x + 23, y + 29, 8, 7 - feet, WORLD_COLORS.pants);
+    box(x + 9, y + 35 + feet, 10, 4, WORLD_COLORS.shoes);
+    box(x + 22, y + 35 - feet, 10, 4, WORLD_COLORS.shoes);
+    box(x + 8, y + 20, 25, 13, facing === 'up' ? WORLD_COLORS.shirt : WORLD_COLORS.denim);
+    box(x + 11, y + 22, 18, 2, WORLD_COLORS.denimLight);
+    pixelLine(x + 12, y + 26.5, x + 16, y + 31, WORLD_COLORS.denimDark);
     pixelLine(x + 26, y + 24, x + 28, y + 30.5, '#9bc2c6');
-    box(x + 5, y + 22 + feet, 5, 10, '#edb881');
-    box(x + 32, y + 22 - feet, 5, 10, '#edb881');
-    box(x + 12, y + 9, 18, 14, '#e8ae7a');
-    if (facing === 'up') box(x + 12, y + 11, 18, 13, '#795b45');
-    box(x + 10, y + 7, 22, 6, '#795a3d');
-    box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, '#b48b56');
-    box(x + 12, y, 18, 7, '#ccaa68');
+    const arms = { up: [7, 30], down: [5, 32], left: [6, 31], right: [6, 31] }[facing];
+    box(x + arms[0], y + 22 + feet, 5, 10, WORLD_COLORS.skinLight);
+    if (facing === 'up' || facing === 'down') box(x + arms[1], y + 22 - feet, 5, 10, WORLD_COLORS.skinLight);
+    box(x + 12, y + 9, 18, 14, WORLD_COLORS.skin);
+    if (facing === 'up') {
+      box(x + 12, y + 11, 18, 13, WORLD_COLORS.bark);
+      pixelLine(x + 13, y + 22, x + 27, y + 31, WORLD_COLORS.denimLight, 2);
+      pixelLine(x + 29, y + 22, x + 15, y + 31, WORLD_COLORS.denimLight, 2);
+    } else if (facing === 'down') {
+      box(x + 13, y + 21, 4, 10, WORLD_COLORS.denimLight); box(x + 26, y + 21, 4, 10, WORLD_COLORS.denimLight);
+      box(x + 15, y + 29, 2, 2, WORLD_COLORS.hat); box(x + 26, y + 29, 2, 2, WORLD_COLORS.hat);
+    } else pixelLine(x + (facing === 'left' ? 11 : 30), y + 23, x + (facing === 'left' ? 11 : 30), y + 33, WORLD_COLORS.denimDark);
+    box(x + 10, y + 7, 22, 6, WORLD_COLORS.hatBand);
+    box(x + (facing === 'left' ? 2 : facing === 'right' ? 10 : 6), y + 4, 30, 6, WORLD_COLORS.hatBrim);
+    box(x + 12, y, 18, 7, WORLD_COLORS.hat);
     box(x + 16, y + 2, 11, 1, '#e4c989');
     for (let i = 0; i < 5; i++) pixelLine(x + 13 + i * 3, y + 1.5, x + 16 + i * 3, y + 5.5, '#efd79a', 0.5);
     if (facing !== 'up') {
       if (facing === 'left') box(x + 13, y + 16, 3, 3, '#3c4540');
       else if (facing === 'right') box(x + 27, y + 16, 3, 3, '#3c4540');
       else {
-        box(x + 16, y + 15, 3, 3, '#3c4540');
-        box(x + 25, y + 15, 3, 3, '#3c4540');
+        box(x + 16, y + 15, 3, 3, WORLD_COLORS.ink);
+        box(x + 25, y + 15, 3, 3, WORLD_COLORS.ink);
         box(x + 20, y + 20, 3, 1, '#b97761');
       }
       const eyeX = facing === 'left' ? x + 13.5 : facing === 'right' ? x + 27.5 : x + 16.5;
@@ -779,6 +793,40 @@
     }
   }
 
+  function drawVillager(id, person, now) {
+    const x = FIELD_X + person.x * TILE, baseY = FIELD_Y + person.y * TILE;
+    const y = baseY + Math.round(Math.sin(now / 760 + person.x * 0.8) * 1);
+    const short = id === 'hunter' ? 3 : 0;
+    shadow(x + 24, baseY + 40, 13, 4);
+    box(x + 16, y + 19 + short, 16, 20 - short, { mayor: WORLD_COLORS.hutBlue, merchant: WORLD_COLORS.hutRed, hunter: WORLD_COLORS.hutGreen }[id]);
+    box(x + 19, y + 9 + short, 11, 12, WORLD_COLORS.skin);
+    if (id === 'mayor') {
+      box(x + 16, y + 4, 17, 4, WORLD_COLORS.ink); box(x + 19, y, 11, 6, WORLD_COLORS.hutBlue);
+      box(x + 18, y + 17, 13, 8, WORLD_COLORS.beard); box(x + 20, y + 23, 9, 4, WORLD_COLORS.beard);
+    } else if (id === 'merchant') {
+      box(x + 16, y + 6, 17, 7, WORLD_COLORS.scarf); box(x + 18, y + 3, 13, 5, WORLD_COLORS.hutRed);
+      box(x + 19, y + 23, 11, 14, WORLD_COLORS.beard); pixelLine(x + 19, y + 25, x + 30, y + 25, WORLD_COLORS.hutRed);
+    } else {
+      box(x + 16, y + 7, 17, 5, WORLD_COLORS.hunterHat); box(x + 20, y + 3, 12, 6, WORLD_COLORS.hutGreen);
+      pixelLine(x + 13, y + 15, x + 10, y + 35, WORLD_COLORS.woodDark, 2); pixelLine(x + 10, y + 15, x + 10, y + 35, WORLD_COLORS.hat, 1);
+    }
+    box(x + 1, y - 8, 46, 14, WORLD_COLORS.woodDark); label(F.VILLAGERS[id].name, x + 3, y + 3, WORLD_COLORS.windowGlow, 10);
+    if (Math.abs(person.x - state.farmer.x) + Math.abs(person.y - state.farmer.y) <= 1) {
+      box(x - 7, y - 24, 62, 14, WORLD_COLORS.windowGlow); label('空格交谈', x - 4, y - 13, WORLD_COLORS.woodDark, 10);
+    }
+  }
+
+  function drawBandit(enemy, now) {
+    const x = FIELD_X + enemy.x * TILE, y = FIELD_Y + enemy.y * TILE;
+    const lean = enemy.retreating ? 5 : 0, cape = Math.floor(now / 120) % 2 ? 3 : -2;
+    box(x + 13 + lean, y + 12, 23, 26, now < battleFlashUntil ? WORLD_COLORS.whiteFlash : enemy.retreating ? WORLD_COLORS.banditEdge : WORLD_COLORS.bandit);
+    box(x + 10 + lean, y + 27, 8 + cape, 12, WORLD_COLORS.capeLight); box(x + 27 + lean, y + 27, 8 - cape, 12, WORLD_COLORS.capeDark);
+    pixelLine(x + 11 + lean, y + 31, x + 34 + lean, y + 35, WORLD_COLORS.banditEdge);
+    box(x + 9 + lean, y + 8, 30, 8, WORLD_COLORS.banditMask); box(x + 14 + lean, y + 16, 20, 8, WORLD_COLORS.banditMask);
+    box(x + 17 + lean, y + 13, 3, 2, WORLD_COLORS.whiteFlash); box(x + 29 + lean, y + 13, 3, 2, WORLD_COLORS.whiteFlash);
+    label(`♥${Math.max(0, enemy.health)}`, x + 12, y + 8, WORLD_COLORS.windowGlow, 10);
+  }
+
   function drawScene(now) {
     const key = F.season(state);
     if (key !== staticKey) {
@@ -792,6 +840,7 @@
     const target = F.cameraTarget(state.farmer, SCENE_WIDTH, SCENE_HEIGHT, TILE);
     camera = F.cameraStep(camera, target, cameraTime ? now - cameraTime : 0);
     cameraTime = now;
+    const visible = F.visibleCellRange(camera, SCENE_WIDTH, SCENE_HEIGHT, TILE, 1);
     const sx = Math.max(0, camera.x), sy = Math.max(0, camera.y);
     const sw = Math.min(WORLD_WIDTH, SCENE_WIDTH), sh = Math.min(WORLD_HEIGHT, SCENE_HEIGHT);
     ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
@@ -799,11 +848,11 @@
       Math.max(0, -camera.x), Math.max(0, -camera.y), sw, sh);
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
-    drawAmbient(now);
-    drawPondRipples(now);
-    drawResourceNodes(now);
-    for (let y = 0; y < F.HEIGHT; y++) {
-      for (let x = 0; x < F.WIDTH; x++) drawPlot(state.plots[y][x], x, y);
+    drawAmbient(now, visible);
+    drawPondRipples(now, visible);
+    drawResourceNodes(now, visible);
+    for (let y = visible.top; y <= visible.bottom; y++) {
+      for (let x = visible.left; x <= visible.right; x++) drawPlot(state.plots[y][x], x, y);
     }
     const front = F.frontCell(state);
     if (front.x >= 0 && front.y >= 0 && front.x < F.WIDTH && front.y < F.HEIGHT) {
@@ -823,35 +872,20 @@
     }
     drawFarmer(now);
     if (!battle) for (const [id, person] of Object.entries(villagers)) {
-      const x = FIELD_X + person.x * TILE, baseY = FIELD_Y + person.y * TILE;
-      const y = baseY + Math.round(Math.sin(now / 760 + person.x * 0.8) * 1);
-      shadow(x + 24, baseY + 40, 13, 4);
-      box(x + 16, y + 19, 16, 20, { mayor: '#708baf', merchant: '#bc745a', hunter: '#617c55' }[id]);
-      box(x + 19, y + 9, 11, 12, '#e8ba8f');
-      box(x + 17, y + 6, 15, 6, { mayor: '#ece1ba', merchant: '#836159', hunter: '#4b593a' }[id]);
-      box(x + 1, y - 8, 46, 14, '#604e40');
-      label(F.VILLAGERS[id].name, x + 3, y + 3, '#fff9dd', 10);
-      if (Math.abs(person.x - state.farmer.x) + Math.abs(person.y - state.farmer.y) <= 1) {
-        box(x - 7, y - 24, 62, 14, '#fff9dd');
-        label('空格交谈', x - 4, y - 13, '#604e40', 10);
-      }
+      if (person.x < visible.left || person.x > visible.right || person.y < visible.top || person.y > visible.bottom) continue;
+      drawVillager(id, person, now);
     }
     if (battle) {
       ctx.fillStyle = 'rgba(15, 30, 79, 0.48)';
       ctx.fillRect(camera.x, camera.y, SCENE_WIDTH, SCENE_HEIGHT);
       for (const enemy of battle.enemies) {
-        if (enemy.x < 0 || enemy.x >= F.WIDTH) continue;
-        const x = FIELD_X + enemy.x * TILE, y = FIELD_Y + enemy.y * TILE;
-        const lean = enemy.retreating ? 5 : 0;
-        const cape = Math.floor(now / 120) % 2 ? 3 : -2;
-        box(x + 13 + lean, y + 12, 23, 26, now < battleFlashUntil ? WORLD_COLORS.whiteFlash : enemy.retreating ? '#8793b1' : '#713c49');
-        box(x + 10 + lean, y + 27, 8 + cape, 12, WORLD_COLORS.capeLight); box(x + 27 + lean, y + 27, 8 - cape, 12, WORLD_COLORS.capeDark);
-        box(x + 9, y + 8, 30, 8, '#342b48');
-        label(`♥${Math.max(0, enemy.health)}`, x + 12, y + 8, '#fff4cf', 10);
+        if (enemy.x < visible.left || enemy.x > visible.right || enemy.y < visible.top || enemy.y > visible.bottom) continue;
+        drawBandit(enemy, now);
       }
       label('守夜中 · 面向强盗按使用键挥砍', camera.x + 215, camera.y + 62, '#fff4cf', 15);
     }
     for (const particle of particles) {
+      if (particle.x < camera.x - TILE || particle.x > camera.x + SCENE_WIDTH + TILE || particle.y < camera.y - TILE || particle.y > camera.y + SCENE_HEIGHT + TILE) continue;
       ctx.globalAlpha = ['smoke', 'star', 'splash', 'leaf', 'dust'].includes(particle.kind) ? Math.max(0, 1 - particle.age / particle.life) : 1;
       if (particle.kind === 'text') label('+1', particle.x - 9, particle.y, particle.color, 15);
       else if (particle.kind === 'harvest') {
@@ -1062,6 +1096,27 @@
     document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
   }
 
+  function drawVillagerPortrait(id) {
+    const portrait = document.getElementById('villager-portrait');
+    const scale = Math.min(2, window.devicePixelRatio || 1);
+    portrait.width = 48 * scale; portrait.height = 48 * scale;
+    const portraitContext = portrait.getContext('2d'); portraitContext.scale(scale, scale); portraitContext.imageSmoothingEnabled = false;
+    const paint = (x, y, width, height, color) => { portraitContext.fillStyle = color; portraitContext.fillRect(x, y, width, height); };
+    paint(0, 0, 48, 48, WORLD_COLORS.windowGlow); paint(9, 25, 30, 23, { mayor: WORLD_COLORS.hutBlue, merchant: WORLD_COLORS.hutRed, hunter: WORLD_COLORS.hutGreen }[id]);
+    paint(14, 10, 20, 22, WORLD_COLORS.skin);
+    if (id === 'mayor') {
+      paint(9, 5, 30, 5, WORLD_COLORS.ink); paint(14, 1, 20, 7, WORLD_COLORS.hutBlue);
+      paint(11, 25, 26, 13, WORLD_COLORS.beard); paint(16, 36, 16, 8, WORLD_COLORS.beard);
+    } else if (id === 'merchant') {
+      paint(10, 6, 28, 8, WORLD_COLORS.scarf); paint(14, 2, 20, 7, WORLD_COLORS.hutRed);
+      paint(14, 29, 20, 19, WORLD_COLORS.beard); paint(18, 31, 12, 3, WORLD_COLORS.hutRed);
+    } else {
+      paint(9, 7, 30, 6, WORLD_COLORS.hunterHat); paint(16, 2, 20, 7, WORLD_COLORS.hutGreen);
+      portraitContext.strokeStyle = WORLD_COLORS.woodDark; portraitContext.lineWidth = 3; portraitContext.beginPath(); portraitContext.arc(8, 28, 10, -1.2, 1.2); portraitContext.stroke();
+    }
+    paint(18, 18, 3, 3, WORLD_COLORS.ink); paint(28, 18, 3, 3, WORLD_COLORS.ink);
+  }
+
   function openVillager(id) {
     input.use = false; input.direction = null;
     speakingTo = id;
@@ -1072,6 +1127,7 @@
     document.getElementById('orders-panel').hidden = true;
     document.getElementById('villager-title').textContent = `${F.VILLAGERS[id].name} · ${id === 'mayor' ? '看看今日订单' : id === 'merchant' ? '来挑点东西' : '今晚要当心'}`;
     document.getElementById('villager-line').textContent = F.villagerLine(state, id, talkTurns[id]++);
+    drawVillagerPortrait(id);
     document.body.classList.add('modal-open');
     refreshVillager();
   }
