@@ -504,9 +504,12 @@
     for (let cloud = 0; cloud < 3; cloud++) {
       const cloudX = (((now + cloud * 2700) % 10500) / 10500) * (WORLD_WIDTH + 280) - 190;
       const cloudY = 170 + cloud * 155;
-      ctx.fillStyle = WORLD_COLORS.cloudShadow;
       if (cloudX + 220 >= camera.x && cloudX - 90 <= camera.x + SCENE_WIDTH && cloudY + 30 >= camera.y && cloudY - 30 <= camera.y + SCENE_HEIGHT)
-        for (let puff = 0; puff < 4; puff++) { ctx.beginPath(); ctx.ellipse(cloudX + puff * 38, cloudY + (puff % 2) * 8, 74 - puff * 5, 19, -0.12, 0, Math.PI * 2); ctx.fill(); }
+        for (let puff = 0; puff < 4; puff++) {
+          const width = 110 - puff * 8, puffX = cloudX + puff * 38, puffY = cloudY + (puff % 2) * 8;
+          box(puffX - width / 2 + 8, puffY - 16, width - 16, 32, WORLD_COLORS.cloudShadow);
+          box(puffX - width / 2, puffY - 9, width, 18, WORLD_COLORS.cloudShadow);
+        }
     }
     const season = F.season(state);
     if (season !== '冬') for (let i = 0; i < 2; i++) {
@@ -1068,7 +1071,11 @@
       } else if (particle.kind === 'snow') box(particle.x, particle.y, 3, 3, particle.color);
       else if (particle.kind === 'splash') { box(particle.x - 2, particle.y, 2, 2, particle.color); box(particle.x + 2, particle.y, 2, 2, particle.color); }
       else if (particle.kind === 'leaf') { ctx.save(); ctx.translate(particle.x, particle.y); ctx.rotate(particle.age / 80); box(-3, -1, 6, 3, particle.color); ctx.restore(); }
-      else if (particle.kind === 'dust') { ctx.beginPath(); ctx.arc(particle.x, particle.y, 2 + particle.age / particle.life * 3, 0, Math.PI * 2); ctx.fillStyle = particle.color; ctx.fill(); }
+      else if (particle.kind === 'dust') {
+        const size = 2 + Math.floor(particle.age / particle.life * 3);
+        box(particle.x - size, particle.y - Math.floor(size / 2), size * 2, size, particle.color);
+        box(particle.x - Math.floor(size / 2), particle.y - size, size, size * 2, particle.color);
+      }
       else box(particle.x, particle.y, particle.kind === 'smoke' ? 8 : 4, particle.kind === 'smoke' ? 6 : 4, particle.color);
     }
     ctx.globalAlpha = 1;
@@ -1186,7 +1193,8 @@
     }
     if (now - lastSpark >= 900) {
       const mature = [];
-      for (let y = 0; y < F.HEIGHT; y++) for (let x = 0; x < F.WIDTH; x++) {
+      const sparkleVisible = F.visibleCellRange(camera, SCENE_WIDTH, SCENE_HEIGHT, TILE, 1);
+      for (let y = sparkleVisible.top; y <= sparkleVisible.bottom; y++) for (let x = sparkleVisible.left; x <= sparkleVisible.right; x++) {
         const crop = state.plots[y][x].crop;
         if (crop && crop.progress >= F.CROPS[crop.type].days) mature.push([x, y]);
       }
