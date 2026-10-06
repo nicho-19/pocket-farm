@@ -123,7 +123,7 @@
     skin: '#e8ae7a', skinLight: '#edb881', ink: '#3c4540', hat: '#ccaa68', hatBrim: '#b48b56', hatBand: '#795a3d',
     denim: '#557f9a', denimDark: '#315c73', denimLight: '#739fb2', shirt: '#426f82', pants: '#775c4b', shoes: '#45423f',
     beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1',
-    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646'
+    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646', rainShade: '#243b4650'
   };
   const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
@@ -189,10 +189,12 @@
 
   function handle(outcome, changed) {
     const previousHealth = Number(document.getElementById('health-item').dataset.health || F.HEALTH_MAX);
-    if (state.gold !== goldDisplay && !goldStart) { goldFrom = goldDisplay; goldStart = performance.now(); }
     document.getElementById('hint').textContent = outcome.message;
     document.getElementById('hint').classList.toggle('error', !outcome.ok);
-    if (outcome.ok && changed) {
+    const achievements = F.checkAchievements(state);
+    for (const achievement of achievements) { enqueueToast(`成就达成：${achievement.name}（+${achievement.reward}G）`, 'success'); sound('star'); }
+    if (state.gold !== goldDisplay && !goldStart) { goldFrom = goldDisplay; goldStart = performance.now(); }
+    if (outcome.ok && changed || achievements.length) {
       for (const item of outcome.events.slice().reverse()) journal.unshift(item);
       journal = journal.slice(0, 8);
       if (state.tutorial < 2 && outcome.tool === ['hoe', 'seed'][state.tutorial]) {
@@ -276,7 +278,8 @@
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(0.13, start + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    oscillator.connect(gain).connect(audio.destination);
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
     oscillator.start(start);
     oscillator.stop(start + duration + 0.01);
   }
@@ -288,6 +291,7 @@
     if (kind === 'gather') tone(190, 0.1, 'triangle', 0, 110);
     if (kind === 'rod') { tone(420, 0.08, 'sine'); tone(760, 0.14, 'sine', 0.08); }
     if (kind === 'bite') { tone(880, 0.07, 'square'); tone(1320, 0.12, 'sine', 0.06); }
+    if (kind === 'star') { tone(660, 0.08, 'sine'); tone(990, 0.16, 'sine', 0.07); }
     if (kind === 'sell') { tone(740, 0.12, 'sine'); tone(1100, 0.2, 'sine', 0.11); }
     if (kind === 'error') tone(150, 0.19, 'sawtooth', 0, 110);
     if (kind === 'rain') tone(600, 0.18, 'triangle', 0, 340);
@@ -1168,6 +1172,7 @@
     ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
     ctx.drawImage(staticCanvas, sx * STATIC_SCALE, sy * STATIC_SCALE, sw * STATIC_SCALE, sh * STATIC_SCALE,
       Math.max(0, -camera.x), Math.max(0, -camera.y), sw, sh);
+    if (state.weather === 'rain') { ctx.fillStyle = WORLD_COLORS.rainShade; ctx.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT); }
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
     drawAmbient(now, visible);
@@ -1256,8 +1261,9 @@
   function render() {
     document.getElementById('date').textContent = `${F.season(state)} · 第 ${F.seasonDay(state)} 天`;
     document.getElementById('season-dot').dataset.season = F.season(state);
-    document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
-    document.getElementById('tomorrow').textContent = `明日 ${state.tomorrow === 'rain' ? '☂ 雨' : '☀ 晴'}`;
+    const weatherNames = { sunny: '☀ 晴', cloudy: '☁ 多云', rain: '☂ 雨' };
+    document.getElementById('weather').textContent = weatherNames[state.weather];
+    document.getElementById('tomorrow').textContent = '';
     const raidForecast = document.getElementById('raid-forecast');
     raidForecast.textContent = `今晚 ${state.nightRaid.level === 'large' ? '大入侵' : state.nightRaid.level === 'raid' ? '有动静' : '平静'}`;
     raidForecast.classList.toggle('danger', state.nightRaid.level === 'large');
@@ -1286,13 +1292,15 @@
       `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><span>× ${state.bag[key]} · ${crop.sellPrice} G/份 · 小计 ${state.bag[key] * crop.sellPrice} G</span><button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button><button type="button" data-sell-one="${key}">卖 1</button><button type="button" data-sell-crop="${key}">卖全部</button></div>`
     ).join('') + '<h3>野外资源</h3>' + Object.entries(F.RESOURCES).map(([key, resource]) => `<div class="bag-row"><span>${resource.name}</span><span>× ${state.resources[key]} · ${resource.sellPrice} G/份</span>${F.FOOD_HEAL[key] ? `<button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button>` : ''}<button type="button" data-resource-one="${key}">卖 1</button><button type="button" data-resource-all="${key}">卖全部</button></div>`).join('') + `<div class="bag-row"><span>饭团 × ${state.snacks}</span><button type="button" data-eat="snack">吃 +20</button></div><div class="bag-row"><span>木栅栏库存 × ${state.fenceStock}</span></div><div class="bag-row"><span>稻草人库存 × ${state.scarecrowStock}</span></div>`;
     document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) => {
-      const total = crop.seedPrice * buyAmounts[key];
-      return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
+      const total = F.seedPrice(state, key) * buyAmounts[key];
+      return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}${state.villagers.merchant.hearts >= 3 ? ' · 婆婆友情价 9 折' : ''}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
     }).join('') + `<div id="weapon-shop"><strong>武器 · 高档替换低档，旧武器不退款</strong><p>当前：${F.WEAPONS[state.weapon].name}</p>${Object.entries(F.WEAPONS).filter(([key]) => key !== 'none').map(([key, weapon]) => `<div class="shop-row"><span class="row-copy"><strong>${weapon.name}</strong><small>每击 ${weapon.damage} 点伤害</small></span><span class="row-price">${weapon.price} G</span><button type="button" data-weapon="${key}" ${weapon.damage <= F.WEAPONS[state.weapon].damage ? 'disabled' : ''}>购买</button></div>`).join('')}</div><div class="shop-row"><span class="row-icon" aria-hidden="true">▣</span><span class="row-copy"><strong>饭团</strong><small>恢复 20 生命</small></span><span class="row-price ${state.gold < 20 ? 'unaffordable' : ''}">20 G</span><button type="button" data-snack="buy" class="${state.gold < 20 ? 'cant-afford' : ''}" aria-disabled="${state.gold < 20}">购买</button></div>`;
     document.getElementById('bag-value').textContent = `背包总价值（作物+资源）：${Object.entries(F.CROPS).reduce((sum, [key, crop]) => sum + state.bag[key] * crop.sellPrice, 0) + Object.entries(F.RESOURCES).reduce((sum, [key, resource]) => sum + state.resources[key] * resource.sellPrice, 0)} G`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
     document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" ${order.accepted === false ? `data-accept="${order.id}">接单` : `data-deliver="${order.id}">交付`}</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
     document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>累计采集：${state.stats.gathered}</p><p>累计钓鱼：${state.stats.fished}</p><p>累计制作：${state.stats.crafted}</p><p>完成订单：${state.stats.orders}</p><p>击退强盗：${state.stats.repelled}</p><p>已玩天数：${state.stats.days}</p>`;
+    const unlocked = new Set(state.achievements);
+    document.getElementById('achievements-list').innerHTML = `<h3>成就 ${unlocked.size}/${F.ACHIEVEMENTS.length}</h3>` + F.ACHIEVEMENTS.map(item => `<div class="achievement ${unlocked.has(item.id) ? 'unlocked' : 'locked'}"><strong>${unlocked.has(item.id) ? '✓ ' : ''}${item.name}</strong><span>${item.description} · +${item.reward}G</span></div>`).join('');
     if (speakingTo) refreshVillager();
     drawScene(performance.now());
     updateOverlays(performance.now());
@@ -1345,7 +1353,7 @@
       lastSmoke = now;
     }
     if ((state.weather === 'rain' || F.season(state) === '冬') && now - lastRain > 35) {
-      const snow = F.season(state) === '冬';
+      const snow = state.weather !== 'rain' && F.season(state) === '冬';
       for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % WORLD_WIDTH, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
       lastRain = now;
     }
@@ -1367,7 +1375,7 @@
       const previousWeather = state.weather;
       const outcome = F.sleep(state);
       seasonAfterSleep = F.seasonDay(state) === 1;
-      if (state.weather !== previousWeather) enqueueToast(state.weather === 'rain' ? '天气转雨，作物生长加速' : '雨停转晴，作物照常生长', 'info');
+      if (state.weather !== previousWeather) enqueueToast({ rain: '天气转雨，作物生长加速', cloudy: '明天多云，作物照常生长', sunny: '明天放晴，作物照常生长' }[state.weather], 'info');
       if (state.weather === 'rain') sound('rain');
       enqueueToast(`昨夜损失 ${outcome.raid.lost} 格作物、${outcome.raid.items} 份食物、${outcome.raid.gold} G；反击 ${outcome.raid.repelled} 次`, outcome.raid.lost || outcome.raid.items || outcome.raid.gold ? 'alert' : 'info');
       handle(outcome, true);
@@ -1433,7 +1441,9 @@
     const content = document.getElementById('villager-content');
     content.innerHTML = id === 'mayor' ? document.getElementById('orders-list').innerHTML : id === 'hunter' ? document.getElementById('weapon-shop')?.outerHTML || '' : document.getElementById('shop').innerHTML;
     const person = state.villagers[id];
-    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
+    const like = F.VILLAGERS[speakingTo].likes;
+    const likeName = F.CROPS[like]?.name || F.RESOURCES[like]?.name;
+    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p><p>喜好：${person.likeKnown ? likeName : '???'}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
   }
 
   function drawVillagerPortrait(id) {
@@ -1537,7 +1547,7 @@
     const five = event.target.closest('[data-buy-five]');
     if (five) { buyAmounts[five.dataset.buyFive] += 5; render(); return; }
     const button = event.target.closest('[data-buy]');
-    if (button) { initAudio(); const price = F.CROPS[button.dataset.buy].seedPrice * buyAmounts[button.dataset.buy]; const outcome = F.buySeed(state, button.dataset.buy, buyAmounts[button.dataset.buy]); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
+    if (button) { initAudio(); const price = F.seedPrice(state, button.dataset.buy) * buyAmounts[button.dataset.buy]; const outcome = F.buySeed(state, button.dataset.buy, buyAmounts[button.dataset.buy]); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
     const weapon = event.target.closest('[data-weapon]');
     if (weapon) { const outcome = F.buyWeapon(state, weapon.dataset.weapon); if (!outcome.ok) sound('error'); handle(outcome, true); }
     if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) { outcome.message = `金币不足，还差 ${20 - state.gold} G`; sound('error'); } handle(outcome, true); }
@@ -1681,8 +1691,10 @@
     if (seed) { handle(F.buySeed(state, seed.dataset.buy, buyAmounts[seed.dataset.buy]), true); return; }
     if (event.target.closest('[data-snack]')) handle(F.buySnack(state), true);
   });
-  document.getElementById('crop-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = false; document.getElementById('stats-list').hidden = true; });
-  document.getElementById('stats-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = true; document.getElementById('stats-list').hidden = false; });
+  function showCodexSection(id) { for (const section of ['codex-list', 'stats-list', 'achievements-list']) document.getElementById(section).hidden = section !== id; }
+  document.getElementById('crop-tab').addEventListener('click', () => showCodexSection('codex-list'));
+  document.getElementById('stats-tab').addEventListener('click', () => showCodexSection('stats-list'));
+  document.getElementById('achievements-tab').addEventListener('click', () => showCodexSection('achievements-list'));
   document.getElementById('codex-panel').addEventListener('click', event => {
     if (event.target.id === 'codex-panel') closePanels();
   });

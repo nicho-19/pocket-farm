@@ -4,6 +4,7 @@
   const WIDTH = 40;
   const HEIGHT = 28;
   const HEALTH_MAX = 100;
+  const WEATHERS = { sunny: { name: '晴', chance: 0.5 }, cloudy: { name: '多云', chance: 0.3 }, rain: { name: '雨', chance: 0.2 } };
   const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
   const CROPS = {
@@ -55,7 +56,21 @@
     gate: { x: 20, y: 27 },
     raidSpawns: [{ x: 9, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 10 }]
   };
-  const VILLAGERS = { mayor: { name: '村长', points: [[12, 9], [12, 10], [13, 10]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[14, 9], [14, 10], [13, 10]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[16, 9], [16, 10], [15, 10]], gift: '木栅栏×2' } };
+  const VILLAGERS = { mayor: { name: '村长', points: [[12, 9], [12, 10], [13, 10]], gift: '100G', likes: 'fish' }, merchant: { name: '商人婆婆', points: [[14, 9], [14, 10], [13, 10]], gift: '饭团×2', likes: 'berry' }, hunter: { name: '小猎手', points: [[16, 9], [16, 10], [15, 10]], gift: '木栅栏×2', likes: 'corn' } };
+  const ACHIEVEMENTS = [
+    { id: 'harvest-10', name: '初尝丰收', description: '累计收获 10 份作物', reward: 20, check: s => s.stats.harvested >= 10 },
+    { id: 'harvest-50', name: '田园熟手', description: '累计收获 50 份作物', reward: 80, check: s => s.stats.harvested >= 50 },
+    { id: 'harvest-150', name: '丰收之星', description: '累计收获 150 份作物', reward: 250, check: s => s.stats.harvested >= 150 },
+    { id: 'fish-20', name: '池边钓客', description: '累计钓鱼 20 次', reward: 80, check: s => s.stats.fished >= 20 },
+    { id: 'gather-30', name: '林地行家', description: '累计采集 30 次', reward: 80, check: s => s.stats.gathered >= 30 },
+    { id: 'craft-10', name: '手作达人', description: '累计制作 10 次', reward: 100, check: s => s.stats.crafted >= 10 },
+    { id: 'orders-10', name: '靠谱农夫', description: '完成 10 份订单', reward: 120, check: s => s.stats.orders >= 10 },
+    { id: 'repel-3', name: '守田人', description: '击退 3 名强盗', reward: 100, check: s => s.stats.repelled >= 3 },
+    { id: 'income-5000', name: '买卖兴隆', description: '累计收入 5000 G', reward: 300, check: s => s.stats.income >= 5000 },
+    { id: 'gold-1000', name: '千金在手', description: '持有 1000 G', reward: 150, check: s => s.gold >= 1000 },
+    { id: 'days-14', name: '半月田园', description: '游玩 14 天', reward: 120, check: s => s.stats.days >= 14 },
+    { id: 'friends-all', name: '全村好友', description: '三位村民好感全满', reward: 500, check: s => Object.values(s.villagers).every(v => v.hearts >= 5) }
+  ];
   const RESOURCE_NODES = [
     ...[[18, 9], [20, 9], [22, 9], [25, 9], [27, 9], [29, 9], [7, 6], [10, 6], [16, 6], [30, 6], [31, 6], [35, 6]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
     ...[[19, 9], [26, 9], [8, 6], [17, 6], [32, 6]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
@@ -102,7 +117,7 @@
 
   function createGame() {
     return {
-      version: 8,
+      version: 9,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -110,7 +125,7 @@
       health: HEALTH_MAX,
       weapon: 'none',
       gameOver: false,
-      villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
+      villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false, likeKnown: false }])),
       fenceStock: 0,
       scarecrowStock: 0,
       farmer: { x: 15, y: 10, facing: 'down' },
@@ -127,6 +142,7 @@
       stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0 },
       manualTool: false,
       autoTool: true,
+      achievements: [],
       tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
@@ -138,11 +154,11 @@
       saved.plots.every(row => Array.isArray(row) && row.length === width);
     const legacy = originalVersion <= 5 && shape(12, 9);
     const v7Shape = originalVersion <= 7 && shape(20, 14);
-    const v8Shape = originalVersion === 8 && shape(WIDTH, HEIGHT);
+    const v8Shape = (originalVersion === 8 || originalVersion === 9) && shape(WIDTH, HEIGHT);
     const farmerInShape = saved?.farmer && (legacy ? saved.farmer.x >= 0 && saved.farmer.x < 12 && saved.farmer.y >= 0 && saved.farmer.y < 9 :
       v7Shape ? saved.farmer.x >= 0 && saved.farmer.x < 20 && saved.farmer.y >= 0 && saved.farmer.y < 14 :
       v8Shape && inBounds(saved.farmer.x, saved.farmer.y));
-    if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8].includes(originalVersion) ||
+    if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(originalVersion) ||
         !(legacy || v7Shape || v8Shape) || !farmerInShape ||
         !DIRECTIONS[saved.farmer.facing] || !(TOOLS[saved.tool] || saved.tool === 'water') ||
         !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
@@ -165,7 +181,7 @@
     saved.gameOver = !!saved.gameOver || saved.health <= 0;
     saved.villagers = Object.fromEntries(Object.keys(VILLAGERS).map(id => {
       const old = saved.villagers?.[id] || {};
-      return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded }];
+      return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded, likeKnown: !!old.likeKnown }];
     }));
     saved.fenceStock = Number.isInteger(saved.fenceStock) && saved.fenceStock >= 0 ? saved.fenceStock : 0;
     saved.scarecrowStock = Number.isInteger(saved.scarecrowStock) && saved.scarecrowStock >= 0 ? saved.scarecrowStock : 0;
@@ -185,7 +201,7 @@
             (plot.crop && !CROPS[plot.crop.type])) return null;
       }
     }
-    saved.tomorrow = saved.tomorrow === 'rain' ? 'rain' : 'sunny';
+    saved.tomorrow = WEATHERS[saved.tomorrow] ? saved.tomorrow : 'sunny';
     saved.snacks = Number.isInteger(saved.snacks) && saved.snacks >= 0 ? saved.snacks : 0;
     const refund = !!saved.upgrades?.water;
     const hoeRefund = originalVersion <= 4 && !!saved.upgrades?.hoe;
@@ -210,8 +226,10 @@
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.autoTool = typeof saved.autoTool === 'boolean' ? saved.autoTool : true;
+    saved.achievements = [...new Set(Array.isArray(saved.achievements) ? saved.achievements.filter(id => ACHIEVEMENTS.some(item => item.id === id)) : [])];
+    saved.weather = WEATHERS[saved.weather] ? saved.weather : 'sunny';
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 8;
+    saved.version = 9;
     return saved;
   }
 
@@ -367,12 +385,13 @@
 
   function buySeed(state, crop, amount) {
     if (!CROPS[crop] || !Number.isInteger(amount) || amount < 1) return result(false, '购买数量无效');
-    const price = CROPS[crop].seedPrice * amount;
+    const price = seedPrice(state, crop) * amount;
     if (state.gold < price) return result(false, '金币不够');
     state.gold -= price;
     state.seeds[crop] += amount;
     return result(true, `购买了 ${amount} 包${CROPS[crop].name}种子，花费 ${price} G，余额 ${state.gold} G`);
   }
+  function seedPrice(state, crop) { return Math.ceil(CROPS[crop].seedPrice * (state.villagers?.merchant?.hearts >= 3 ? 0.9 : 1)); }
   function placeBuilding(state, kind) {
     if (!BUILDINGS[kind]) return result(false, '无效建造道具');
     const { x, y } = frontCell(state);
@@ -400,8 +419,10 @@
     if ((resource ? state.resources[item] : state.bag[item]) < 1) return result(false, '背包里没有这份礼物');
     if (resource) state.resources[item]--; else state.bag[item]--;
     villager.giftedDay = state.day;
-    villager.hearts = Math.min(5, villager.hearts + 1);
-    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5`];
+    const liked = VILLAGERS[id].likes === item;
+    villager.hearts = Math.min(5, villager.hearts + (liked ? 2 : 1));
+    if (liked) villager.likeKnown = true;
+    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5${liked ? `，正合${VILLAGERS[id].name}的胃口！` : ''}`];
     if (villager.hearts === 5 && !villager.rewarded) {
       villager.rewarded = true;
       if (id === 'mayor') state.gold += 100;
@@ -410,6 +431,20 @@
       events.push(`${VILLAGERS[id].name}回礼：${VILLAGERS[id].gift}`);
     }
     return { ...result(true, events[0], events), rewarded: villager.rewarded };
+  }
+
+  function checkAchievements(state) {
+    const unlocked = new Set(state.achievements || []), fresh = [];
+    for (const achievement of ACHIEVEMENTS) if (!unlocked.has(achievement.id) && achievement.check(state)) {
+      unlocked.add(achievement.id); fresh.push(achievement); state.gold += achievement.reward;
+    }
+    state.achievements = [...unlocked];
+    return fresh;
+  }
+
+  function rollWeather(random = Math.random) {
+    const value = random();
+    return value < 0.5 ? 'sunny' : value < 0.8 ? 'cloudy' : 'rain';
   }
 
   function villagerLine(state, id, turn = 0) {
@@ -725,10 +760,12 @@
       state.gameOver = true;
       return { ...result(true, '农夫倒下了，游戏结束', events), raid };
     }
+    const roll = random || Math.random;
+    const nextWeather = rollWeather(roll);
     for (const row of state.plots) {
       for (const plot of row) {
         if (plot.crop && plot.crop.progress < CROPS[plot.crop.type].days) {
-          plot.crop.progress = Math.min(CROPS[plot.crop.type].days, plot.crop.progress + 1 + (state.tomorrow === 'rain' ? 1 : 0));
+          plot.crop.progress = Math.min(CROPS[plot.crop.type].days, plot.crop.progress + 1 + (nextWeather === 'rain' ? 1 : 0));
           if (plot.crop.progress === CROPS[plot.crop.type].days) {
             events.push(`${CROPS[plot.crop.type].name}成熟了！`);
           }
@@ -744,11 +781,11 @@
       }
     }
     if (refreshed) events.push('野外资源刷新了');
-    const roll = random || Math.random;
-    state.weather = state.tomorrow;
+    state.weather = nextWeather;
     state.tomorrow = roll() < RAIN_CHANCE[season(state)] ? 'rain' : 'sunny';
     state.nightRaid = planRaid(state.day, roll);
     events.push(state.weather === 'rain' ? '雨天使作物额外生长 1 格' : '作物每天自动生长 1 格');
+    events.push(`明天天气：${WEATHERS[state.weather].name}`);
     if (seasonDay(state) === 1) events.push(`进入${season(state)}季`);
     state.stats.days++;
     const expired = state.orders.filter(order => state.day > order.deadline);
@@ -758,8 +795,8 @@
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, WEATHERS, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, ACHIEVEMENTS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectAutoTool, selectCrop,
-    act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
+    act, gatherNode, buySeed, seedPrice, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, rollWeather, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine, checkAchievements
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

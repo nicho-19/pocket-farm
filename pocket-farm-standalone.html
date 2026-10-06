@@ -167,6 +167,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 .villager-dialogue{display:flex;align-items:center;gap:var(--space-12);min-height:56px}.villager-dialogue p{margin:0}.villager-dialogue canvas{width:48px;height:48px;flex:0 0 48px;border:2px solid var(--wood-light);border-radius:var(--radius-sm);background:var(--cream);image-rendering:pixelated}
 
 .health-item>span:first-child{color:var(--danger);font-size:21px}.health-item>button{min-width:44px;min-height:44px;border:1px solid var(--wood-light);border-radius:var(--radius-sm);background:var(--cream)}
+.achievement{display:flex;justify-content:space-between;gap:var(--space-3);padding:var(--space-2);border-bottom:1px solid var(--line)}.achievement.locked{color:var(--wood-light);opacity:.65}.achievement.unlocked strong{color:var(--grass)}
 @media(prefers-reduced-motion:reduce){.low-health .health-track div{animation:none}}
 
 </style>
@@ -219,7 +220,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   </div>
   <div id="home-confirm" class="confirm-bar" hidden>已到家门口 <button id="home-sleep" type="button">睡觉</button><button id="home-watch" type="button">守夜</button><button id="home-cancel" type="button">再逛逛</button></div><div id="sell-confirm" class="confirm-bar" hidden><span id="sell-confirm-text"></span><button id="sell-confirm-yes" type="button">确认卖出</button><button id="sell-confirm-no" type="button">取消</button></div><div id="season-banner" class="season-banner" role="status" aria-live="polite" hidden></div>
   <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
-  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button></div><div id="codex-list"></div><div id="stats-list" hidden></div></div></div>
+  <div id="codex-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="作物图鉴"><div class="modal-heading"><h2>图鉴与统计</h2><button id="close-codex" class="close-button" type="button" aria-label="关闭图鉴">×</button></div><div class="tabs"><button id="crop-tab" type="button">作物</button><button id="stats-tab" type="button">统计</button><button id="achievements-tab" type="button">成就</button></div><div id="codex-list"></div><div id="stats-list" hidden></div><div id="achievements-list" hidden></div></div></div>
   <div id="orders-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="订单板"><div class="modal-heading"><h2>今日订单</h2><button id="close-orders" class="close-button" type="button" aria-label="关闭订单板">×</button></div><div id="orders-list"></div></div></div>
   <div id="villager-panel" class="modal" hidden><div class="modal-card" role="dialog" aria-modal="true" aria-label="村民对话"><div class="modal-heading"><h2 id="villager-title"></h2><button id="close-villager" class="close-button" type="button" aria-label="关闭对话">×</button></div><div class="villager-dialogue"><canvas id="villager-portrait" width="48" height="48" aria-hidden="true"></canvas><p id="villager-line"></p></div><div id="villager-content"></div><h3>送一份礼物</h3><div id="villager-gifts"></div></div></div>
   <div id="game-over" class="modal" hidden><div class="modal-card game-over-card" role="dialog" aria-modal="true" aria-label="游戏结束"><h2>农夫倒下了</h2><p id="game-over-stats"></p><button id="restart" class="primary-button" type="button">重新开始</button></div></div>
@@ -230,6 +231,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   const WIDTH = 40;
   const HEIGHT = 28;
   const HEALTH_MAX = 100;
+  const WEATHERS = { sunny: { name: '晴', chance: 0.5 }, cloudy: { name: '多云', chance: 0.3 }, rain: { name: '雨', chance: 0.2 } };
   const RAIN_CHANCE = { '春': 0.30, '夏': 0.40, '秋': 0.25, '冬': 0.20 };
   const SEASONS = ['春', '夏', '秋', '冬'];
   const CROPS = {
@@ -281,7 +283,21 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     gate: { x: 20, y: 27 },
     raidSpawns: [{ x: 9, y: 10 }, { x: 20, y: 10 }, { x: 30, y: 10 }]
   };
-  const VILLAGERS = { mayor: { name: '村长', points: [[12, 9], [12, 10], [13, 10]], gift: '100G' }, merchant: { name: '商人婆婆', points: [[14, 9], [14, 10], [13, 10]], gift: '饭团×2' }, hunter: { name: '小猎手', points: [[16, 9], [16, 10], [15, 10]], gift: '木栅栏×2' } };
+  const VILLAGERS = { mayor: { name: '村长', points: [[12, 9], [12, 10], [13, 10]], gift: '100G', likes: 'fish' }, merchant: { name: '商人婆婆', points: [[14, 9], [14, 10], [13, 10]], gift: '饭团×2', likes: 'berry' }, hunter: { name: '小猎手', points: [[16, 9], [16, 10], [15, 10]], gift: '木栅栏×2', likes: 'corn' } };
+  const ACHIEVEMENTS = [
+    { id: 'harvest-10', name: '初尝丰收', description: '累计收获 10 份作物', reward: 20, check: s => s.stats.harvested >= 10 },
+    { id: 'harvest-50', name: '田园熟手', description: '累计收获 50 份作物', reward: 80, check: s => s.stats.harvested >= 50 },
+    { id: 'harvest-150', name: '丰收之星', description: '累计收获 150 份作物', reward: 250, check: s => s.stats.harvested >= 150 },
+    { id: 'fish-20', name: '池边钓客', description: '累计钓鱼 20 次', reward: 80, check: s => s.stats.fished >= 20 },
+    { id: 'gather-30', name: '林地行家', description: '累计采集 30 次', reward: 80, check: s => s.stats.gathered >= 30 },
+    { id: 'craft-10', name: '手作达人', description: '累计制作 10 次', reward: 100, check: s => s.stats.crafted >= 10 },
+    { id: 'orders-10', name: '靠谱农夫', description: '完成 10 份订单', reward: 120, check: s => s.stats.orders >= 10 },
+    { id: 'repel-3', name: '守田人', description: '击退 3 名强盗', reward: 100, check: s => s.stats.repelled >= 3 },
+    { id: 'income-5000', name: '买卖兴隆', description: '累计收入 5000 G', reward: 300, check: s => s.stats.income >= 5000 },
+    { id: 'gold-1000', name: '千金在手', description: '持有 1000 G', reward: 150, check: s => s.gold >= 1000 },
+    { id: 'days-14', name: '半月田园', description: '游玩 14 天', reward: 120, check: s => s.stats.days >= 14 },
+    { id: 'friends-all', name: '全村好友', description: '三位村民好感全满', reward: 500, check: s => Object.values(s.villagers).every(v => v.hearts >= 5) }
+  ];
   const RESOURCE_NODES = [
     ...[[18, 9], [20, 9], [22, 9], [25, 9], [27, 9], [29, 9], [7, 6], [10, 6], [16, 6], [30, 6], [31, 6], [35, 6]].map(([x, y], i) => ({ id: `tree-${i + 1}`, kind: 'tree', x, y, maxCharges: 2 })),
     ...[[19, 9], [26, 9], [8, 6], [17, 6], [32, 6]].map(([x, y], i) => ({ id: `berry-${i + 1}`, kind: 'berry', x, y, maxCharges: 2 })),
@@ -328,7 +344,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function createGame() {
     return {
-      version: 8,
+      version: 9,
       day: 1,
       weather: 'sunny',
       tomorrow: 'sunny',
@@ -336,7 +352,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       health: HEALTH_MAX,
       weapon: 'none',
       gameOver: false,
-      villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false }])),
+      villagers: Object.fromEntries(Object.keys(VILLAGERS).map(id => [id, { hearts: 0, giftedDay: 0, rewarded: false, likeKnown: false }])),
       fenceStock: 0,
       scarecrowStock: 0,
       farmer: { x: 15, y: 10, facing: 'down' },
@@ -353,6 +369,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0 },
       manualTool: false,
       autoTool: true,
+      achievements: [],
       tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
@@ -364,11 +381,11 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       saved.plots.every(row => Array.isArray(row) && row.length === width);
     const legacy = originalVersion <= 5 && shape(12, 9);
     const v7Shape = originalVersion <= 7 && shape(20, 14);
-    const v8Shape = originalVersion === 8 && shape(WIDTH, HEIGHT);
+    const v8Shape = (originalVersion === 8 || originalVersion === 9) && shape(WIDTH, HEIGHT);
     const farmerInShape = saved?.farmer && (legacy ? saved.farmer.x >= 0 && saved.farmer.x < 12 && saved.farmer.y >= 0 && saved.farmer.y < 9 :
       v7Shape ? saved.farmer.x >= 0 && saved.farmer.x < 20 && saved.farmer.y >= 0 && saved.farmer.y < 14 :
       v8Shape && inBounds(saved.farmer.x, saved.farmer.y));
-    if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8].includes(originalVersion) ||
+    if (!saved || ![1, 2, 3, 4, 5, 6, 7, 8, 9].includes(originalVersion) ||
         !(legacy || v7Shape || v8Shape) || !farmerInShape ||
         !DIRECTIONS[saved.farmer.facing] || !(TOOLS[saved.tool] || saved.tool === 'water') ||
         !CROPS[saved.selectedCrop] || !Number.isFinite(saved.day) ||
@@ -391,7 +408,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     saved.gameOver = !!saved.gameOver || saved.health <= 0;
     saved.villagers = Object.fromEntries(Object.keys(VILLAGERS).map(id => {
       const old = saved.villagers?.[id] || {};
-      return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded }];
+      return [id, { hearts: Math.max(0, Math.min(5, Number.isInteger(old.hearts) ? old.hearts : 0)), giftedDay: Number.isInteger(old.giftedDay) ? old.giftedDay : 0, rewarded: !!old.rewarded, likeKnown: !!old.likeKnown }];
     }));
     saved.fenceStock = Number.isInteger(saved.fenceStock) && saved.fenceStock >= 0 ? saved.fenceStock : 0;
     saved.scarecrowStock = Number.isInteger(saved.scarecrowStock) && saved.scarecrowStock >= 0 ? saved.scarecrowStock : 0;
@@ -411,7 +428,7 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
             (plot.crop && !CROPS[plot.crop.type])) return null;
       }
     }
-    saved.tomorrow = saved.tomorrow === 'rain' ? 'rain' : 'sunny';
+    saved.tomorrow = WEATHERS[saved.tomorrow] ? saved.tomorrow : 'sunny';
     saved.snacks = Number.isInteger(saved.snacks) && saved.snacks >= 0 ? saved.snacks : 0;
     const refund = !!saved.upgrades?.water;
     const hoeRefund = originalVersion <= 4 && !!saved.upgrades?.hoe;
@@ -436,8 +453,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
     saved.autoTool = typeof saved.autoTool === 'boolean' ? saved.autoTool : true;
+    saved.achievements = [...new Set(Array.isArray(saved.achievements) ? saved.achievements.filter(id => ACHIEVEMENTS.some(item => item.id === id)) : [])];
+    saved.weather = WEATHERS[saved.weather] ? saved.weather : 'sunny';
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
-    saved.version = 8;
+    saved.version = 9;
     return saved;
   }
 
@@ -593,12 +612,13 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 
   function buySeed(state, crop, amount) {
     if (!CROPS[crop] || !Number.isInteger(amount) || amount < 1) return result(false, '购买数量无效');
-    const price = CROPS[crop].seedPrice * amount;
+    const price = seedPrice(state, crop) * amount;
     if (state.gold < price) return result(false, '金币不够');
     state.gold -= price;
     state.seeds[crop] += amount;
     return result(true, `购买了 ${amount} 包${CROPS[crop].name}种子，花费 ${price} G，余额 ${state.gold} G`);
   }
+  function seedPrice(state, crop) { return Math.ceil(CROPS[crop].seedPrice * (state.villagers?.merchant?.hearts >= 3 ? 0.9 : 1)); }
   function placeBuilding(state, kind) {
     if (!BUILDINGS[kind]) return result(false, '无效建造道具');
     const { x, y } = frontCell(state);
@@ -626,8 +646,10 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
     if ((resource ? state.resources[item] : state.bag[item]) < 1) return result(false, '背包里没有这份礼物');
     if (resource) state.resources[item]--; else state.bag[item]--;
     villager.giftedDay = state.day;
-    villager.hearts = Math.min(5, villager.hearts + 1);
-    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5`];
+    const liked = VILLAGERS[id].likes === item;
+    villager.hearts = Math.min(5, villager.hearts + (liked ? 2 : 1));
+    if (liked) villager.likeKnown = true;
+    const events = [`送给${VILLAGERS[id].name}一份${resource ? RESOURCES[item].name : CROPS[item].name}，好感 ${villager.hearts}/5${liked ? `，正合${VILLAGERS[id].name}的胃口！` : ''}`];
     if (villager.hearts === 5 && !villager.rewarded) {
       villager.rewarded = true;
       if (id === 'mayor') state.gold += 100;
@@ -636,6 +658,20 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       events.push(`${VILLAGERS[id].name}回礼：${VILLAGERS[id].gift}`);
     }
     return { ...result(true, events[0], events), rewarded: villager.rewarded };
+  }
+
+  function checkAchievements(state) {
+    const unlocked = new Set(state.achievements || []), fresh = [];
+    for (const achievement of ACHIEVEMENTS) if (!unlocked.has(achievement.id) && achievement.check(state)) {
+      unlocked.add(achievement.id); fresh.push(achievement); state.gold += achievement.reward;
+    }
+    state.achievements = [...unlocked];
+    return fresh;
+  }
+
+  function rollWeather(random = Math.random) {
+    const value = random();
+    return value < 0.5 ? 'sunny' : value < 0.8 ? 'cloudy' : 'rain';
   }
 
   function villagerLine(state, id, turn = 0) {
@@ -951,10 +987,12 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       state.gameOver = true;
       return { ...result(true, '农夫倒下了，游戏结束', events), raid };
     }
+    const roll = random || Math.random;
+    const nextWeather = rollWeather(roll);
     for (const row of state.plots) {
       for (const plot of row) {
         if (plot.crop && plot.crop.progress < CROPS[plot.crop.type].days) {
-          plot.crop.progress = Math.min(CROPS[plot.crop.type].days, plot.crop.progress + 1 + (state.tomorrow === 'rain' ? 1 : 0));
+          plot.crop.progress = Math.min(CROPS[plot.crop.type].days, plot.crop.progress + 1 + (nextWeather === 'rain' ? 1 : 0));
           if (plot.crop.progress === CROPS[plot.crop.type].days) {
             events.push(`${CROPS[plot.crop.type].name}成熟了！`);
           }
@@ -970,11 +1008,11 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
       }
     }
     if (refreshed) events.push('野外资源刷新了');
-    const roll = random || Math.random;
-    state.weather = state.tomorrow;
+    state.weather = nextWeather;
     state.tomorrow = roll() < RAIN_CHANCE[season(state)] ? 'rain' : 'sunny';
     state.nightRaid = planRaid(state.day, roll);
     events.push(state.weather === 'rain' ? '雨天使作物额外生长 1 格' : '作物每天自动生长 1 格');
+    events.push(`明天天气：${WEATHERS[state.weather].name}`);
     if (seasonDay(state) === 1) events.push(`进入${season(state)}季`);
     state.stats.days++;
     const expired = state.orders.filter(order => state.day > order.deadline);
@@ -984,9 +1022,9 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
   }
 
   root.PocketFarm = {
-    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
+    WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, WEATHERS, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, ACHIEVEMENTS, planRaid, resolveRaid,
     createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectAutoTool, selectCrop,
-    act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
+    act, gatherNode, buySeed, seedPrice, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, rollWeather, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine, checkAchievements
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);
 
@@ -1118,7 +1156,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     skin: '#e8ae7a', skinLight: '#edb881', ink: '#3c4540', hat: '#ccaa68', hatBrim: '#b48b56', hatBand: '#795a3d',
     denim: '#557f9a', denimDark: '#315c73', denimLight: '#739fb2', shirt: '#426f82', pants: '#775c4b', shoes: '#45423f',
     beard: '#ece1ba', scarf: '#836159', hunterHat: '#4b593a', bandit: '#713c49', banditMask: '#342b48', banditEdge: '#8793b1',
-    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646'
+    stoneDark: '#68777d', stoneMid: '#89969a', stoneLight: '#aeb1a6', stump: '#8a6040', stumpLight: '#c79a62', berry: '#c94646', rainShade: '#243b4650'
   };
   const keys = ['hoe', 'seed', 'scythe', 'gather', 'rod', 'build'];
   let state = load() || F.createGame();
@@ -1184,10 +1222,12 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
 
   function handle(outcome, changed) {
     const previousHealth = Number(document.getElementById('health-item').dataset.health || F.HEALTH_MAX);
-    if (state.gold !== goldDisplay && !goldStart) { goldFrom = goldDisplay; goldStart = performance.now(); }
     document.getElementById('hint').textContent = outcome.message;
     document.getElementById('hint').classList.toggle('error', !outcome.ok);
-    if (outcome.ok && changed) {
+    const achievements = F.checkAchievements(state);
+    for (const achievement of achievements) { enqueueToast(`成就达成：${achievement.name}（+${achievement.reward}G）`, 'success'); sound('star'); }
+    if (state.gold !== goldDisplay && !goldStart) { goldFrom = goldDisplay; goldStart = performance.now(); }
+    if (outcome.ok && changed || achievements.length) {
       for (const item of outcome.events.slice().reverse()) journal.unshift(item);
       journal = journal.slice(0, 8);
       if (state.tutorial < 2 && outcome.tool === ['hoe', 'seed'][state.tutorial]) {
@@ -1271,7 +1311,8 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     gain.gain.setValueAtTime(0.0001, start);
     gain.gain.exponentialRampToValueAtTime(0.13, start + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-    oscillator.connect(gain).connect(audio.destination);
+    oscillator.connect(gain);
+    gain.connect(audio.destination);
     oscillator.start(start);
     oscillator.stop(start + duration + 0.01);
   }
@@ -1283,6 +1324,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     if (kind === 'gather') tone(190, 0.1, 'triangle', 0, 110);
     if (kind === 'rod') { tone(420, 0.08, 'sine'); tone(760, 0.14, 'sine', 0.08); }
     if (kind === 'bite') { tone(880, 0.07, 'square'); tone(1320, 0.12, 'sine', 0.06); }
+    if (kind === 'star') { tone(660, 0.08, 'sine'); tone(990, 0.16, 'sine', 0.07); }
     if (kind === 'sell') { tone(740, 0.12, 'sine'); tone(1100, 0.2, 'sine', 0.11); }
     if (kind === 'error') tone(150, 0.19, 'sawtooth', 0, 110);
     if (kind === 'rain') tone(600, 0.18, 'triangle', 0, 340);
@@ -2163,6 +2205,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     ctx.clearRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT);
     ctx.drawImage(staticCanvas, sx * STATIC_SCALE, sy * STATIC_SCALE, sw * STATIC_SCALE, sh * STATIC_SCALE,
       Math.max(0, -camera.x), Math.max(0, -camera.y), sw, sh);
+    if (state.weather === 'rain') { ctx.fillStyle = WORLD_COLORS.rainShade; ctx.fillRect(0, 0, SCENE_WIDTH, SCENE_HEIGHT); }
     ctx.save();
     ctx.translate(-camera.x, -camera.y);
     drawAmbient(now, visible);
@@ -2251,8 +2294,9 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
   function render() {
     document.getElementById('date').textContent = `${F.season(state)} · 第 ${F.seasonDay(state)} 天`;
     document.getElementById('season-dot').dataset.season = F.season(state);
-    document.getElementById('weather').textContent = state.weather === 'rain' ? '☂ 雨天' : '☀ 晴天';
-    document.getElementById('tomorrow').textContent = `明日 ${state.tomorrow === 'rain' ? '☂ 雨' : '☀ 晴'}`;
+    const weatherNames = { sunny: '☀ 晴', cloudy: '☁ 多云', rain: '☂ 雨' };
+    document.getElementById('weather').textContent = weatherNames[state.weather];
+    document.getElementById('tomorrow').textContent = '';
     const raidForecast = document.getElementById('raid-forecast');
     raidForecast.textContent = `今晚 ${state.nightRaid.level === 'large' ? '大入侵' : state.nightRaid.level === 'raid' ? '有动静' : '平静'}`;
     raidForecast.classList.toggle('danger', state.nightRaid.level === 'large');
@@ -2281,13 +2325,15 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
       `<div class="bag-row"><span><i class="crop-dot" style="background:${cropColors[key]}"></i>${crop.name}</span><span>× ${state.bag[key]} · ${crop.sellPrice} G/份 · 小计 ${state.bag[key] * crop.sellPrice} G</span><button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button><button type="button" data-sell-one="${key}">卖 1</button><button type="button" data-sell-crop="${key}">卖全部</button></div>`
     ).join('') + '<h3>野外资源</h3>' + Object.entries(F.RESOURCES).map(([key, resource]) => `<div class="bag-row"><span>${resource.name}</span><span>× ${state.resources[key]} · ${resource.sellPrice} G/份</span>${F.FOOD_HEAL[key] ? `<button type="button" data-eat="${key}">吃 +${F.FOOD_HEAL[key]}</button>` : ''}<button type="button" data-resource-one="${key}">卖 1</button><button type="button" data-resource-all="${key}">卖全部</button></div>`).join('') + `<div class="bag-row"><span>饭团 × ${state.snacks}</span><button type="button" data-eat="snack">吃 +20</button></div><div class="bag-row"><span>木栅栏库存 × ${state.fenceStock}</span></div><div class="bag-row"><span>稻草人库存 × ${state.scarecrowStock}</span></div>`;
     document.getElementById('shop').innerHTML = Object.entries(F.CROPS).map(([key, crop]) => {
-      const total = crop.seedPrice * buyAmounts[key];
-      return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
+      const total = F.seedPrice(state, key) * buyAmounts[key];
+      return `<div class="shop-row" data-shop-row="${key}"><i class="crop-dot" style="background:${cropColors[key]}"></i><span class="row-copy"><strong>${crop.name}种子</strong><small>${crop.days} 天成熟 · 已有 ${state.seeds[key]}${state.villagers.merchant.hearts >= 3 ? ' · 婆婆友情价 9 折' : ''}</small></span><span class="quantity-control"><button type="button" data-buy-step="${key}" data-delta="-1">−</button><b>${buyAmounts[key]}</b><button type="button" data-buy-step="${key}" data-delta="1">+</button><button type="button" data-buy-five="${key}">×5</button></span><span class="row-price ${state.gold < total ? 'unaffordable' : ''}">${total} G</span><button type="button" data-buy="${key}" class="${state.gold < total ? 'cant-afford' : ''}" aria-disabled="${state.gold < total}">购买</button></div>`;
     }).join('') + `<div id="weapon-shop"><strong>武器 · 高档替换低档，旧武器不退款</strong><p>当前：${F.WEAPONS[state.weapon].name}</p>${Object.entries(F.WEAPONS).filter(([key]) => key !== 'none').map(([key, weapon]) => `<div class="shop-row"><span class="row-copy"><strong>${weapon.name}</strong><small>每击 ${weapon.damage} 点伤害</small></span><span class="row-price">${weapon.price} G</span><button type="button" data-weapon="${key}" ${weapon.damage <= F.WEAPONS[state.weapon].damage ? 'disabled' : ''}>购买</button></div>`).join('')}</div><div class="shop-row"><span class="row-icon" aria-hidden="true">▣</span><span class="row-copy"><strong>饭团</strong><small>恢复 20 生命</small></span><span class="row-price ${state.gold < 20 ? 'unaffordable' : ''}">20 G</span><button type="button" data-snack="buy" class="${state.gold < 20 ? 'cant-afford' : ''}" aria-disabled="${state.gold < 20}">购买</button></div>`;
     document.getElementById('bag-value').textContent = `背包总价值（作物+资源）：${Object.entries(F.CROPS).reduce((sum, [key, crop]) => sum + state.bag[key] * crop.sellPrice, 0) + Object.entries(F.RESOURCES).reduce((sum, [key, resource]) => sum + state.resources[key] * resource.sellPrice, 0)} G`;
     document.getElementById('log').innerHTML = journal.map(item => `<li>${item}</li>`).join('');
     document.getElementById('orders-list').innerHTML = state.orders.length ? state.orders.map(order => `<div class="order-row"><span>${F.CROPS[order.crop].name} × ${order.amount} · 第 ${order.deadline} 天前<br>奖励 ${order.reward} G · 背包 ${state.bag[order.crop]}</span><button type="button" ${order.accepted === false ? `data-accept="${order.id}">接单` : `data-deliver="${order.id}">交付`}</button></div>`).join('') : '<p>今日没有订单，睡觉后刷新。</p>';
     document.getElementById('stats-list').innerHTML = `<p>累计收入：${state.stats.income} G</p><p>累计收获：${state.stats.harvested}</p><p>累计采集：${state.stats.gathered}</p><p>累计钓鱼：${state.stats.fished}</p><p>累计制作：${state.stats.crafted}</p><p>完成订单：${state.stats.orders}</p><p>击退强盗：${state.stats.repelled}</p><p>已玩天数：${state.stats.days}</p>`;
+    const unlocked = new Set(state.achievements);
+    document.getElementById('achievements-list').innerHTML = `<h3>成就 ${unlocked.size}/${F.ACHIEVEMENTS.length}</h3>` + F.ACHIEVEMENTS.map(item => `<div class="achievement ${unlocked.has(item.id) ? 'unlocked' : 'locked'}"><strong>${unlocked.has(item.id) ? '✓ ' : ''}${item.name}</strong><span>${item.description} · +${item.reward}G</span></div>`).join('');
     if (speakingTo) refreshVillager();
     drawScene(performance.now());
     updateOverlays(performance.now());
@@ -2340,7 +2386,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
       lastSmoke = now;
     }
     if ((state.weather === 'rain' || F.season(state) === '冬') && now - lastRain > 35) {
-      const snow = F.season(state) === '冬';
+      const snow = state.weather !== 'rain' && F.season(state) === '冬';
       for (let i = 0; i < 2; i++) addParticle((now * 3 + i * 251) % WORLD_WIDTH, -10 - i * 120, snow ? 0 : -0.25, snow ? 0.14 : 0.85, snow ? 4500 : 850, snow ? '#f5f8edc9' : '#b7e5e8a0', snow ? 'snow' : 'rain');
       lastRain = now;
     }
@@ -2362,7 +2408,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
       const previousWeather = state.weather;
       const outcome = F.sleep(state);
       seasonAfterSleep = F.seasonDay(state) === 1;
-      if (state.weather !== previousWeather) enqueueToast(state.weather === 'rain' ? '天气转雨，作物生长加速' : '雨停转晴，作物照常生长', 'info');
+      if (state.weather !== previousWeather) enqueueToast({ rain: '天气转雨，作物生长加速', cloudy: '明天多云，作物照常生长', sunny: '明天放晴，作物照常生长' }[state.weather], 'info');
       if (state.weather === 'rain') sound('rain');
       enqueueToast(`昨夜损失 ${outcome.raid.lost} 格作物、${outcome.raid.items} 份食物、${outcome.raid.gold} G；反击 ${outcome.raid.repelled} 次`, outcome.raid.lost || outcome.raid.items || outcome.raid.gold ? 'alert' : 'info');
       handle(outcome, true);
@@ -2428,7 +2474,9 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     const content = document.getElementById('villager-content');
     content.innerHTML = id === 'mayor' ? document.getElementById('orders-list').innerHTML : id === 'hunter' ? document.getElementById('weapon-shop')?.outerHTML || '' : document.getElementById('shop').innerHTML;
     const person = state.villagers[id];
-    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
+    const like = F.VILLAGERS[speakingTo].likes;
+    const likeName = F.CROPS[like]?.name || F.RESOURCES[like]?.name;
+    document.getElementById('villager-gifts').innerHTML = `<p>好感 ♥ ${person.hearts}/5${person.giftedDay === state.day ? ' · 今日已送礼' : ''}</p><p>喜好：${person.likeKnown ? likeName : '???'}</p>` + Object.entries(F.CROPS).filter(([key]) => state.bag[key] > 0).map(([key, crop]) => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${crop.name} ×1</button>`).join('') + ['fish', 'berry'].filter(key => state.resources[key] > 0).map(key => `<button type="button" data-gift="${key}" ${person.giftedDay === state.day ? 'disabled' : ''}>送${F.RESOURCES[key].name} ×1</button>`).join('');
   }
 
   function drawVillagerPortrait(id) {
@@ -2532,7 +2580,7 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     const five = event.target.closest('[data-buy-five]');
     if (five) { buyAmounts[five.dataset.buyFive] += 5; render(); return; }
     const button = event.target.closest('[data-buy]');
-    if (button) { initAudio(); const price = F.CROPS[button.dataset.buy].seedPrice * buyAmounts[button.dataset.buy]; const outcome = F.buySeed(state, button.dataset.buy, buyAmounts[button.dataset.buy]); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
+    if (button) { initAudio(); const price = F.seedPrice(state, button.dataset.buy) * buyAmounts[button.dataset.buy]; const outcome = F.buySeed(state, button.dataset.buy, buyAmounts[button.dataset.buy]); if (!outcome.ok) { outcome.message = `金币不足，还差 ${price - state.gold} G`; sound('error'); } handle(outcome, true); }
     const weapon = event.target.closest('[data-weapon]');
     if (weapon) { const outcome = F.buyWeapon(state, weapon.dataset.weapon); if (!outcome.ok) sound('error'); handle(outcome, true); }
     if (event.target.closest('[data-snack]')) { const outcome = F.buySnack(state); if (!outcome.ok) { outcome.message = `金币不足，还差 ${20 - state.gold} G`; sound('error'); } handle(outcome, true); }
@@ -2676,8 +2724,10 @@ window.__SPRITE_DATA__={"char-farmer-down-0":"data:image/png;base64,iVBORw0KGgoA
     if (seed) { handle(F.buySeed(state, seed.dataset.buy, buyAmounts[seed.dataset.buy]), true); return; }
     if (event.target.closest('[data-snack]')) handle(F.buySnack(state), true);
   });
-  document.getElementById('crop-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = false; document.getElementById('stats-list').hidden = true; });
-  document.getElementById('stats-tab').addEventListener('click', () => { document.getElementById('codex-list').hidden = true; document.getElementById('stats-list').hidden = false; });
+  function showCodexSection(id) { for (const section of ['codex-list', 'stats-list', 'achievements-list']) document.getElementById(section).hidden = section !== id; }
+  document.getElementById('crop-tab').addEventListener('click', () => showCodexSection('codex-list'));
+  document.getElementById('stats-tab').addEventListener('click', () => showCodexSection('stats-list'));
+  document.getElementById('achievements-tab').addEventListener('click', () => showCodexSection('achievements-list'));
   document.getElementById('codex-panel').addEventListener('click', event => {
     if (event.target.id === 'codex-panel') closePanels();
   });

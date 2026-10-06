@@ -160,4 +160,5 @@ footer{text-align:center;font-size:var(--text-xs);padding:var(--space-5) 0}
 .villager-dialogue{display:flex;align-items:center;gap:var(--space-12);min-height:56px}.villager-dialogue p{margin:0}.villager-dialogue canvas{width:48px;height:48px;flex:0 0 48px;border:2px solid var(--wood-light);border-radius:var(--radius-sm);background:var(--cream);image-rendering:pixelated}
 
 .health-item>span:first-child{color:var(--danger);font-size:21px}.health-item>button{min-width:44px;min-height:44px;border:1px solid var(--wood-light);border-radius:var(--radius-sm);background:var(--cream)}
+.achievement{display:flex;justify-content:space-between;gap:var(--space-3);padding:var(--space-2);border-bottom:1px solid var(--line)}.achievement.locked{color:var(--wood-light);opacity:.65}.achievement.unlocked strong{color:var(--grass)}
 @media(prefers-reduced-motion:reduce){.low-health .health-track div{animation:none}}
