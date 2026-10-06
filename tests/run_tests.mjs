@@ -259,7 +259,23 @@ check('每 28 天换季且日期重置', () => {
 check('智能工具选锄头、种子与成熟镰刀，手选优先', () => {
   const s = F.createGame(); assert.equal(F.act(s, true).tool, 'hoe');
   assert.equal(F.act(s, true).tool, 'seed'); plant(s, 15, 11, 'carrot', 3);
-  assert.equal(F.act(s, true).tool, 'scythe'); F.selectTool(s, 'hoe'); assert.equal(F.act(s, true).ok, false);
+  assert.equal(F.act(s, true).tool, 'scythe'); F.selectTool(s, 'hoe'); assert.equal(s.autoTool, false); assert.equal(F.act(s, true).ok, false);
+  plant(s, 15, 11, 'carrot', 3); F.selectAutoTool(s); assert.equal(s.autoTool, true); assert.equal(F.act(s, true).tool, 'scythe');
+});
+check('自动播种在当前种子用完时按作物顺序换种', () => {
+  const s = F.createGame(); s.plots[11][15].tilled = true; s.seeds.carrot = 0; s.seeds.pumpkin = 2;
+  const outcome = F.act(s, true);
+  assert.equal(outcome.ok, true); assert.equal(s.plots[11][15].crop.type, 'pumpkin');
+  assert.match(outcome.message, /萝卜种子没了，改播南瓜/);
+});
+check('自动播种无库存保留原错误，手动播种不换种', () => {
+  const automatic = F.createGame(); automatic.plots[11][15].tilled = true; automatic.seeds.carrot = 0;
+  assert.match(F.act(automatic, true).message, /萝卜种子不够/);
+  const manual = F.createGame(); manual.plots[11][15].tilled = true; manual.seeds.carrot = 0; manual.seeds.potato = 1;
+  F.selectTool(manual, 'seed'); assert.match(F.act(manual, true).message, /萝卜种子不够/); assert.equal(manual.seeds.potato, 1);
+});
+check('旧档缺少自动工具字段时默认开启', () => {
+  const s = legacySave(5); delete s.autoTool; F.migrateSave(s); assert.equal(s.autoTool, true);
 });
 check('天气预报与次日一致，四季雨率可读', () => {
   const s = F.createGame(); s.tomorrow = 'rain'; F.sleep(s, () => 0.99);
@@ -362,11 +378,12 @@ check('三种采集节点、工具判定与智能操作', () => {
     F.selectTool(s, 'hoe'); assert.equal(F.act(s, true).ok, false); assert.equal(s.resources[key], 1); assert.notEqual(JSON.stringify(s.resourceNodes), before);
   }
 });
-check('钓鱼成功、失败与采空不调随机数', () => {
+check('钓鱼调用即成功且采空不调随机数', () => {
   const s = F.createGame(); s.farmer = { x: 25, y: 17, facing: 'right' }; F.selectTool(s, 'rod');
-  assert.equal(F.act(s, true, () => 0.5).ok, true); assert.equal(s.resources.fish, 1);
-  assert.equal(F.act(s, true, () => 0.9).ok, false); assert.equal(s.resourceNodes['fish-1'].charges, 1);
-  F.act(s, true, () => 0.1); let calls = 0; assert.equal(F.act(s, true, () => { calls++; return 0; }).ok, false); assert.equal(calls, 0);
+  let calls = 0;
+  assert.equal(F.act(s, true, () => { calls++; return 0.99; }).ok, true); assert.equal(s.resources.fish, 1);
+  assert.equal(F.act(s, true, () => { calls++; return 0.99; }).ok, true); assert.equal(s.resourceNodes['fish-1'].charges, 0);
+  assert.equal(F.act(s, true, () => { calls++; return 0; }).ok, false); assert.equal(calls, 0);
 });
 check('节点按钓点1天、木果2天、石3天刷新', () => {
   const s = F.createGame(); for (const id of ['fish-1', 'tree-1', 'berry-1', 'stone-1']) { s.resourceNodes[id].charges = 0; s.resourceNodes[id].respawnDay = s.day + ({ 'fish-1': 1, 'tree-1': 2, 'berry-1': 2, 'stone-1': 3 }[id]); }

@@ -126,6 +126,7 @@
       nextOrderId: 1,
       stats: { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0 },
       manualTool: false,
+      autoTool: true,
       tutorial: 0,
       plots: Array.from({ length: HEIGHT }, () => Array.from({ length: WIDTH }, makePlot))
     };
@@ -208,6 +209,7 @@
     saved.nextOrderId = Number.isInteger(saved.nextOrderId) ? saved.nextOrderId : 1;
     saved.stats = { income: 0, harvested: 0, orders: 0, days: 0, repelled: 0, gathered: 0, fished: 0, crafted: 0, ...saved.stats };
     saved.manualTool = !!saved.manualTool;
+    saved.autoTool = typeof saved.autoTool === 'boolean' ? saved.autoTool : true;
     saved.tutorial = Number.isInteger(saved.tutorial) && saved.tutorial >= 0 && saved.tutorial <= 2 ? saved.tutorial : 2;
     saved.version = 8;
     return saved;
@@ -273,7 +275,14 @@
     if (!TOOLS[tool]) return result(false, '无效工具');
     state.tool = tool;
     state.manualTool = true;
+    state.autoTool = false;
     return result(true, `已选择${TOOLS[tool].name}`, []);
+  }
+
+  function selectAutoTool(state) {
+    state.autoTool = true;
+    state.manualTool = false;
+    return result(true, '已开启自动工具', []);
   }
 
   function selectCrop(state, crop) {
@@ -286,7 +295,6 @@
     const status = state.resourceNodes[node.id];
     if (!status.charges) return result(false, `该${node.kind === 'fish' ? '钓点' : '节点'}已采空，明天或刷新日恢复`);
     if (node.kind === 'fish') {
-      if (random() >= 0.75) return result(false, '鱼咬钩又跑了');
       state.resources.fish++; status.charges--; state.stats.fished++;
       if (!status.charges) status.respawnDay = state.day + 1;
       return { ...result(true, '钓到了1条池鱼'), tool: 'rod', resource: 'fish' };
@@ -305,16 +313,23 @@
     const node = resourceNodeAt(x, y);
     if (node) {
       const required = node.kind === 'fish' ? 'rod' : 'gather';
-      if (smart && !state.manualTool) tool = required;
+      if (smart && state.autoTool) tool = required;
       if (tool !== required) return result(false, node.kind === 'fish' ? '请改用鱼竿钓鱼' : '请改用采集工具');
       return gatherNode(state, node, random);
     }
-    if (smart && !state.manualTool) {
+    let crop = state.selectedCrop;
+    let seedSwap = '';
+    if (smart && state.autoTool) {
       if (plot.crop && plot.crop.progress >= CROPS[plot.crop.type].days) tool = 'scythe';
-      else if (plot.tilled && !plot.crop && state.seeds[state.selectedCrop] > 0) tool = 'seed';
+      else if (plot.tilled && !plot.crop) {
+        tool = 'seed';
+        if (state.seeds[crop] < 1) {
+          const fallback = Object.keys(CROPS).find(key => state.seeds[key] > 0);
+          if (fallback) { seedSwap = `${CROPS[crop].name}种子没了，改播${CROPS[fallback].name}。`; crop = fallback; state.selectedCrop = fallback; }
+        }
+      }
       else if (!plot.tilled) tool = 'hoe';
     }
-    const crop = state.selectedCrop;
 
     let message;
     if (tool === 'hoe') {
@@ -330,7 +345,7 @@
       if (state.seeds[crop] < 1) return result(false, `${CROPS[crop].name}种子不够，去商店购买`);
       state.seeds[crop]--;
       plot.crop = { type: crop, progress: 0 };
-      message = `播下${CROPS[crop].name}种子`;
+      message = `${seedSwap}播下${CROPS[crop].name}种子`;
     } else if (tool === 'scythe') {
       if (plot.structure) {
         const name = plot.structure === 'fence' ? '木栅栏' : '稻草人';
@@ -744,7 +759,7 @@
 
   root.PocketFarm = {
     WIDTH, HEIGHT, LAYOUT, terrainAt, canWalk, cameraTarget, cameraStep, screenToCell, visibleCellRange, HEALTH_MAX, RAIN_CHANCE, CROPS, RESOURCES, CRAFTS, RESOURCE_NODES, resourceNodeAt, TOOLS, DIRECTIONS, BUILDINGS, FOOD_HEAL, WEAPONS, VILLAGERS, planRaid, resolveRaid,
-    createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectCrop,
+    createGame, migrateSave, season, seasonDay, frontCell, move, selectTool, selectAutoTool, selectCrop,
     act, gatherNode, buySeed, sellAll, sellCrop, sellResource, salePreview, orderReserve, sleep, buyWeapon, buySnack, eatFood, quickEat, craft, generateOrders, acceptOrder, deliverOrder, findPath, placeBuilding, pathBetween, startWatch, watchStrike, watchTick, giftVillager, villagerLine
   };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

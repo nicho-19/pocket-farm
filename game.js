@@ -5,6 +5,8 @@
   const SAVE_KEY = 'pocket-farm-save-v1';
   const BEST_KEY = 'pocket-farm-best-days';
   const TILE = 48;
+  const FARMER_H = 62;
+  const CHARACTER_SCALE = FARMER_H / 46;
   const RENDER_SCALE = 2;
   const STATIC_SCALE = 2;
   const SCENE_WIDTH = 768;
@@ -101,7 +103,7 @@
     '冬': { grass: '#aac1b8', grassDark: '#8aada8', grassDeep: '#68777d', grassMid: '#c2d2c7', light: '#d8dfd0', sky: '#dfe9e1' }
   };
   const cropColors = { carrot: '#ef9252', potato: '#d5b481', pumpkin: '#e5a44b', strawberry: '#df514f', corn: '#f4c851' };
-  const icons = { hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
+  const icons = { auto: '✦', hoe: '⚒', seed: '✿', scythe: '☷', gather: '🧺', rod: '🎣', build: '▥' };
   const UI_COLORS = { focus: '#a96d21', danger: '#a3372b' };
   const WORLD_COLORS = {
     water: '#67b6b8', waterLight: '#98d7cf', waterDeep: '#2f7088', waterMid: '#3e91a4', waterGlint: '#d7f0d9',
@@ -168,7 +170,8 @@
   let visibleToasts = [];
   let toastMarkup = '';
   let panelCloseToken = 0;
-  const input = { direction: null, source: null, next: 0, turned: false, use: false, useNext: 0 };
+  let fishing = null;
+  const input = { direction: null, source: null, next: 0, turned: false, use: false, useNext: 0, useTarget: '' };
   try { muted = localStorage.getItem('pocket-farm-muted') === 'true'; } catch (_) { /* 存储不可用 */ }
 
   function load() {
@@ -284,6 +287,7 @@
     if (kind === 'scythe') { tone(440, 0.09, 'sine'); tone(660, 0.13, 'sine', 0.09); }
     if (kind === 'gather') tone(190, 0.1, 'triangle', 0, 110);
     if (kind === 'rod') { tone(420, 0.08, 'sine'); tone(760, 0.14, 'sine', 0.08); }
+    if (kind === 'bite') { tone(880, 0.07, 'square'); tone(1320, 0.12, 'sine', 0.06); }
     if (kind === 'sell') { tone(740, 0.12, 'sine'); tone(1100, 0.2, 'sine', 0.11); }
     if (kind === 'error') tone(150, 0.19, 'sawtooth', 0, 110);
     if (kind === 'rain') tone(600, 0.18, 'triangle', 0, 340);
@@ -301,6 +305,28 @@
     const nearby = Object.entries(villagers).find(([, person]) => Math.abs(person.x - state.farmer.x) + Math.abs(person.y - state.farmer.y) <= 1);
     if (nearby) { openVillager(nearby[0]); return; }
     const target = F.frontCell(state);
+    const node = F.resourceNodeAt(target.x, target.y);
+    if (fishing) {
+      const now = performance.now();
+      if (fishing.phase !== 'bite' || now > fishing.deadline) {
+        fishing = null; enqueueToast('收竿时机不对，鱼跑掉了', 'alert'); sound('error'); return;
+      }
+      const outcome = F.act(state, true, Math.random);
+      fishing = null;
+      sound(outcome.ok ? 'rod' : 'error');
+      swingUntil = now + 200; swingTool = 'rod';
+      if (outcome.ok) {
+        for (let i = 0; i < 8; i++) addParticle(FIELD_X + target.x * TILE + 24, FIELD_Y + target.y * TILE + 20, (i - 4) * 0.018, -0.035 - i % 2 * 0.012, 420, WORLD_COLORS.waterGlint, 'splash');
+        handle(outcome, true);
+        if (state.resourceNodes[node.id].charges) castLine(node, now);
+        else enqueueToast('这个钓点今天钓空了', 'info');
+      } else handle(outcome, true);
+      return;
+    }
+    if (node?.kind === 'fish' && (state.autoTool || state.tool === 'rod')) {
+      if (!state.resourceNodes[node.id].charges) { handle(F.act(state, true, Math.random), false); sound('error'); return; }
+      castLine(node, performance.now()); return;
+    }
     const tool = state.tool;
     const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
     const outcome = state.tool === 'build' && buildChoice ? F.placeBuilding(state, buildChoice) : F.act(state, true, Math.random);
@@ -326,6 +352,20 @@
     handle(outcome, true);
   }
 
+  function castLine(node, now) {
+    state.farmer.facing = Object.entries(F.DIRECTIONS).find(([, [dx, dy]]) => state.farmer.x + dx === node.x && state.farmer.y + dy === node.y)?.[0] || state.farmer.facing;
+    const rain = state.weather === 'rain';
+    fishing = { nodeId: node.id, x: node.x, y: node.y, phase: 'waiting', biteAt: now + (rain ? 700 : 900) + Math.random() * (rain ? 1100 : 1500), deadline: 0 };
+    swingUntil = now + 200; swingTool = 'rod';
+    document.getElementById('hint').textContent = '抛竿了，等咬钩时再收竿';
+  }
+
+  function cancelFishing(message = '') {
+    if (!fishing) return;
+    fishing = null;
+    if (message) enqueueToast(message, 'info');
+  }
+
   function move(direction) {
     if (state.gameOver) return;
     initAudio();
@@ -336,6 +376,7 @@
 
   function pressDirection(direction, source) {
     if (state.gameOver) return;
+    cancelFishing('移动取消了垂钓');
     if (input.direction && input.source !== source) return;
     if (input.direction === direction) return;
     route = [];
@@ -366,7 +407,9 @@
     homeRoute = false;
     input.use = true;
     action();
-    input.useNext = performance.now() + 180;
+    const target = F.frontCell(state);
+    input.useTarget = `${target.x},${target.y},${state.farmer.facing}`;
+    input.useNext = performance.now() + 150;
   }
 
   function tickInput(now) {
@@ -375,9 +418,21 @@
       move(input.direction);
       input.next = now + 140;
     }
-    if (input.use && now >= input.useNext) {
-      action();
-      input.useNext = now + 180;
+    if (fishing) {
+      if (fishing.phase === 'waiting' && now >= fishing.biteAt) {
+        fishing.phase = 'bite'; fishing.deadline = now + 900;
+        enqueueToast('咬钩了！', 'success'); sound('bite');
+        for (let i = 0; i < 6; i++) addParticle(fishing.x * TILE + 24, fishing.y * TILE + 18, (i - 2.5) * 0.02, -0.04, 360, WORLD_COLORS.waterGlint, 'splash');
+      } else if (fishing.phase === 'bite' && now > fishing.deadline) {
+        fishing = null; enqueueToast('收竿太慢，鱼跑掉了', 'alert');
+      }
+    }
+    if (input.use && !fishing) {
+      const target = F.frontCell(state);
+      const key = `${target.x},${target.y},${state.farmer.facing}`;
+      if (key !== input.useTarget && now >= input.useNext) {
+        action(); input.useTarget = key; input.useNext = now + 150;
+      }
     }
   }
 
@@ -974,7 +1029,7 @@
   }
 
   function drawFarmer(now) {
-    const x = FIELD_X + state.farmer.x * TILE + 9;
+    const x = FIELD_X + state.farmer.x * TILE + 3;
     const walking = now < walkingUntil;
     const frame = walking ? Math.floor(now / 65) % 4 : 0;
     const feet = [0, 2, 0, -2][frame];
@@ -982,8 +1037,10 @@
     const facing = state.farmer.facing;
     shadow(x + 21, y + 39, 16, 5);
     const spriteFrame = walking ? [1, 0, 2, 0][frame] : 0;
-    if (!drawSpriteH(`char-farmer-${facing}-${spriteFrame}`, FIELD_X + state.farmer.x * TILE + TILE / 2,
-      FIELD_Y + state.farmer.y * TILE + 46 + (y - (FIELD_Y + state.farmer.y * TILE + 5)), 46)) {
+    const spriteDrawn = drawSpriteH(`char-farmer-${facing}-${spriteFrame}`, FIELD_X + state.farmer.x * TILE + TILE / 2,
+      FIELD_Y + state.farmer.y * TILE + 46 + (y - (FIELD_Y + state.farmer.y * TILE + 5)), FARMER_H);
+    ctx.save(); ctx.translate(x + 21, y + 39); ctx.scale(CHARACTER_SCALE, CHARACTER_SCALE); ctx.translate(-(x + 21), -(y + 39));
+    if (!spriteDrawn) {
       box(x + 10, y + 29, 8, 7 + feet, WORLD_COLORS.pants);
     box(x + 23, y + 29, 8, 7 - feet, WORLD_COLORS.pants);
     box(x + 9, y + 35 + feet, 10, 4, WORLD_COLORS.shoes);
@@ -1047,6 +1104,7 @@
         for (let i = 0; i < 5; i++) pixelLine(tx + side * (12 + i * 4), ty - 16 + i * i, tx + side * (16 + i * 4), ty - 15 + (i + 1) * (i + 1), WORLD_COLORS.metal, 0.7);
       } else if (swingTool === 'build') { pixelLine(tx, ty, tx + side * 5, ty + 15, WORLD_COLORS.woodDark, 3); box(tx - 5 + (phase % 2) * side * 3, ty - 3, 13, 5, WORLD_COLORS.metal); }
     }
+    ctx.restore();
   }
 
   function drawVillager(id, person, now) {
@@ -1054,6 +1112,7 @@
     const y = baseY + Math.round(Math.sin(now / 760 + person.x * 0.8) * 1);
     const short = id === 'hunter' ? 3 : 0;
     shadow(x + 24, baseY + 40, 13, 4);
+    ctx.save(); ctx.translate(x + 24, baseY + 40); ctx.scale(CHARACTER_SCALE, CHARACTER_SCALE); ctx.translate(-(x + 24), -(baseY + 40));
     box(x + 16, y + 19 + short, 16, 20 - short, { mayor: WORLD_COLORS.hutBlue, merchant: WORLD_COLORS.hutRed, hunter: WORLD_COLORS.hutGreen }[id]);
     box(x + 18, y + 21 + short, 4, 15 - short, WORLD_COLORS.shadow);
     box(x + 23, y + 20 + short, 7, 2, WORLD_COLORS.wall);
@@ -1069,21 +1128,25 @@
       box(x + 16, y + 7, 17, 5, WORLD_COLORS.hunterHat); box(x + 20, y + 3, 12, 6, WORLD_COLORS.hutGreen);
       pixelLine(x + 13, y + 15, x + 10, y + 35, WORLD_COLORS.woodDark, 2); pixelLine(x + 10, y + 15, x + 10, y + 35, WORLD_COLORS.hat, 1);
     }
-    box(x + 1, y - 8, 46, 14, WORLD_COLORS.woodDark); label(F.VILLAGERS[id].name, x + 3, y + 3, WORLD_COLORS.windowGlow, 10);
+    ctx.restore();
+    const labelY = baseY - 25 + (y - baseY);
+    box(x + 1, labelY, 46, 14, WORLD_COLORS.woodDark); label(F.VILLAGERS[id].name, x + 3, labelY + 11, WORLD_COLORS.windowGlow, 10);
     if (Math.abs(person.x - state.farmer.x) + Math.abs(person.y - state.farmer.y) <= 1) {
-      box(x - 7, y - 24, 62, 14, WORLD_COLORS.windowGlow); label('空格交谈', x - 4, y - 13, WORLD_COLORS.woodDark, 10);
+      box(x - 7, labelY - 16, 62, 14, WORLD_COLORS.windowGlow); label('空格交谈', x - 4, labelY - 5, WORLD_COLORS.woodDark, 10);
     }
   }
 
   function drawBandit(enemy, now) {
     const x = FIELD_X + enemy.x * TILE, y = FIELD_Y + enemy.y * TILE;
     const lean = enemy.retreating ? 5 : 0, cape = Math.floor(now / 120) % 2 ? 3 : -2;
+    ctx.save(); ctx.translate(x + 24, y + 39); ctx.scale(CHARACTER_SCALE, CHARACTER_SCALE); ctx.translate(-(x + 24), -(y + 39));
     box(x + 13 + lean, y + 12, 23, 26, now < battleFlashUntil ? WORLD_COLORS.whiteFlash : enemy.retreating ? WORLD_COLORS.banditEdge : WORLD_COLORS.bandit);
     box(x + 10 + lean, y + 27, 8 + cape, 12, WORLD_COLORS.capeLight); box(x + 27 + lean, y + 27, 8 - cape, 12, WORLD_COLORS.capeDark);
     pixelLine(x + 11 + lean, y + 31, x + 34 + lean, y + 35, WORLD_COLORS.banditEdge);
     box(x + 9 + lean, y + 8, 30, 8, WORLD_COLORS.banditMask); box(x + 14 + lean, y + 16, 20, 8, WORLD_COLORS.banditMask);
     box(x + 17 + lean, y + 13, 3, 2, WORLD_COLORS.whiteFlash); box(x + 29 + lean, y + 13, 3, 2, WORLD_COLORS.whiteFlash);
-    label(`♥${Math.max(0, enemy.health)}`, x + 12, y + 8, WORLD_COLORS.windowGlow, 10);
+    ctx.restore();
+    label(`♥${Math.max(0, enemy.health)}`, x + 12 + lean, y - 4, WORLD_COLORS.windowGlow, 10);
   }
 
   function drawScene(now) {
@@ -1110,6 +1173,11 @@
     drawAmbient(now, visible);
     drawPondRipples(now, visible);
     drawResourceNodes(now, visible);
+    if (fishing?.phase === 'bite') {
+      const bx = fishing.x * TILE + 24, by = fishing.y * TILE - 4;
+      box(bx - 12, by - 20, 24, 24, WORLD_COLORS.windowGlow);
+      label('!', bx - 6, by, WORLD_COLORS.danger || WORLD_COLORS.roofRed, 24);
+    }
     for (let y = visible.top; y <= visible.bottom; y++) {
       for (let x = visible.left; x <= visible.right; x++) drawPlot(state.plots[y][x], x, y);
     }
@@ -1208,7 +1276,7 @@
     const healthItem = document.getElementById('health-item');
     healthItem.dataset.health = state.health;
     healthItem.classList.toggle('low-health', state.health <= 30);
-    document.getElementById('tools').innerHTML = keys.map((key, i) =>
+    document.getElementById('tools').innerHTML = `<button type="button" class="tool ${state.autoTool ? 'active' : ''}" data-auto-tool="true" aria-pressed="${state.autoTool}"><span class="tool-name">自动</span><span class="tool-icon">${icons.auto}</span><span>自动</span><small>0</small></button>` + keys.map((key, i) =>
       `<button type="button" class="tool ${state.tool === key ? 'active' : ''} ${toolBounce === key && performance.now() < bounceUntil ? 'bump' : ''}" data-tool="${key}" aria-pressed="${state.tool === key}"><span class="tool-name">${F.TOOLS[key].name}</span><span class="tool-icon">${icons[key]}</span><span>${F.TOOLS[key].name}</span><small>${i + 1}</small></button>`
     ).join('');
     document.getElementById('crop-options').innerHTML = '<span>播种：</span>' + Object.entries(F.CROPS).map(([key, crop]) =>
@@ -1323,6 +1391,7 @@
   });
 
   function selectTool(key) {
+    cancelFishing('切换工具取消了垂钓');
     initAudio();
     if (key !== 'build') buildChoice = null;
     const outcome = F.selectTool(state, key);
@@ -1330,7 +1399,14 @@
     handle(outcome, true);
   }
 
+  function selectAutoTool() {
+    cancelFishing('切换工具取消了垂钓');
+    buildChoice = null;
+    handle(F.selectAutoTool(state), true);
+  }
+
   function openCodex() {
+    cancelFishing('打开面板取消了垂钓');
     panelCloseToken++;
     document.getElementById('codex-panel').classList.remove('closing');
     const list = document.getElementById('codex-list');
@@ -1382,6 +1458,7 @@
   }
 
   function openVillager(id) {
+    cancelFishing('交谈取消了垂钓');
     input.use = false; input.direction = null;
     speakingTo = id;
     panelCloseToken++;
@@ -1422,6 +1499,7 @@
     if (direction) { event.preventDefault(); pressDirection(direction, `key:${event.key}`); return; }
     if (event.key.toLowerCase() === 'h') { event.preventDefault(); goHome(); return; }
     if (event.key.toLowerCase() === 'q') { event.preventDefault(); eat(); return; }
+    if (event.key === '0') { selectAutoTool(); return; }
     if (event.key >= '1' && event.key <= '6') { selectTool(keys[Number(event.key) - 1]); return; }
     if (event.key === ' ' || event.key === 'Enter') {
       if (event.target instanceof HTMLButtonElement) return;
@@ -1435,6 +1513,7 @@
   });
   window.addEventListener('blur', () => { input.direction = null; input.use = false; route = []; homeRoute = false; });
   document.getElementById('tools').addEventListener('click', event => {
+    if (event.target.closest('[data-auto-tool]')) { selectAutoTool(); return; }
     const button = event.target.closest('[data-tool]');
     if (button) selectTool(button.dataset.tool);
   });
@@ -1569,7 +1648,7 @@
     button.setAttribute('aria-pressed', String(muted));
   }
   document.getElementById('codex').addEventListener('click', () => { initAudio(); openCodex(); });
-  document.getElementById('orders-button').addEventListener('click', () => { initAudio(); panelCloseToken++; document.getElementById('orders-panel').classList.remove('closing'); document.getElementById('orders-panel').hidden = false; document.getElementById('codex-panel').hidden = true; document.body.classList.add('modal-open'); document.getElementById('close-orders').focus?.(); });
+  document.getElementById('orders-button').addEventListener('click', () => { initAudio(); cancelFishing('打开面板取消了垂钓'); panelCloseToken++; document.getElementById('orders-panel').classList.remove('closing'); document.getElementById('orders-panel').hidden = false; document.getElementById('codex-panel').hidden = true; document.body.classList.add('modal-open'); document.getElementById('close-orders').focus?.(); });
   document.getElementById('orders-list').addEventListener('click', event => {
     const accept = event.target.closest('[data-accept]');
     if (accept) { handle(F.acceptOrder(state, Number(accept.dataset.accept)), true); return; }

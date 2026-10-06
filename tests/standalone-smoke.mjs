@@ -257,6 +257,24 @@ for (const facing of ['down', 'up', 'left', 'right']) {
   assert.equal(typeof facingContext.Image, 'undefined');
   assert.doesNotThrow(() => facingCallbacks.shift()(now + 32), `农夫 ${facing} 方向程序回退应可绘制`);
 }
+const fishingSave = context.PocketFarm.createGame();
+fishingSave.farmer = { x: 25, y: 17, facing: 'right' };
+context.PocketFarm.selectTool(fishingSave, 'rod');
+storage.set('pocket-farm-save-v1', JSON.stringify(fishingSave));
+for (const id of ['codex-panel', 'orders-panel', 'villager-panel']) element(id).hidden = true;
+const fishingCallbacks = [];
+const fishingContext = vm.createContext({ document, window: { devicePixelRatio: 2, addEventListener() {} },
+  localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value) },
+  performance: { now: () => now }, requestAnimationFrame: callback => fishingCallbacks.push(callback),
+  setTimeout: callback => { callback(); return 1; }, HTMLButtonElement: class {}, confirm: () => true, console });
+for (const script of scripts) vm.runInContext(script, fishingContext, { filename: file });
+listeners.keydown({ key: ' ', target: {}, preventDefault() {} });
+listeners.keyup({ key: ' ' });
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).resources.fish, 0, '抛竿时不直接结算');
+now += 2500; fishingCallbacks.shift()(now);
+listeners.keydown({ key: ' ', target: {}, preventDefault() {} });
+listeners.keyup({ key: ' ' });
+assert.equal(JSON.parse(storage.get('pocket-farm-save-v1')).resources.fish, 1, '窗口内收竿结算');
 console.log('单文件初始化通过：两段内联脚本、五种作物界面、高清 Canvas、键盘和虚拟键转向优先、订单面板、图鉴和静音正常。');
 console.log('新增 UI 断言通过：v8、采集/鱼竿工具、野外资源背包、三种制作，以及原生存与村民界面。');
 console.log('素材回退通过：无 Image 下显式绘制农夫四方向、房屋、林木、采空资源、栅栏、稻草人及五种作物四阶段，均走程序绘制。');
