@@ -473,4 +473,56 @@ check('v8 迁移到 v9 补齐新字段且幂等', () => {
   next.weather = 'cloudy'; next.tomorrow = 'cloudy'; next.achievements = ['fish-20', 'fish-20', 'bogus']; next.villagers.mayor.likeKnown = true;
   F.migrateSave(next); assert.equal(next.weather, 'cloudy'); assert.equal(next.tomorrow, 'cloudy'); assert.equal(next.achievements.join(','), 'fish-20'); assert.equal(next.villagers.mayor.likeKnown, true);
 });
+check('草地可完成开垦播种收获全链且成功返回实际目标', () => {
+  const s = F.createGame(); s.farmer = { x: 4, y: 10, facing: 'right' };
+  assert.equal(F.terrainAt(5, 10), 'grass');
+  const tilled = F.act(s); assert.equal(tilled.ok, true); assert.equal(JSON.stringify(tilled.target), '{"x":5,"y":10}');
+  F.selectTool(s, 'seed'); assert.equal(F.act(s).ok, true);
+  s.plots[10][5].crop.progress = F.CROPS.carrot.days; F.selectTool(s, 'scythe');
+  const harvested = F.act(s); assert.equal(harvested.ok, true); assert.equal(JSON.stringify(harvested.target), '{"x":5,"y":10}'); assert.equal(s.bag.carrot, 1);
+});
+check('草甸可开垦且农田三处草地缝可开垦', () => {
+  for (const [x, y, terrain] of [[36, 10, 'meadow'], [26, 13, 'grass'], [20, 20, 'grass'], [30, 23, 'grass']]) {
+    const s = F.createGame(); s.farmer = { x: x - 1, y, facing: 'right' };
+    assert.equal(F.terrainAt(x, y), terrain); assert.equal(F.act(s).ok, true, `${x},${y} 应可开垦`);
+  }
+});
+check('道路树林池塘房屋住宅仍不可开垦', () => {
+  for (const [x, y, terrain] of [[13, 2, 'path'], [12, 2, 'tree'], [28, 18, 'pond'], [11, 8, 'house'], [12, 10, 'residential']]) {
+    const s = F.createGame(); s.farmer = { x: x - 1, y, facing: 'right' };
+    assert.equal(F.terrainAt(x, y), terrain); const outcome = F.act(s);
+    assert.equal(outcome.ok, false); assert.equal(outcome.message, '这里不能开垦'); assert.equal(s.plots[y][x].tilled, false);
+  }
+});
+check('面前池塘无目标时锄脚下草地并返回脚下坐标', () => {
+  const s = F.createGame(); s.farmer = { x: 25, y: 18, facing: 'right' };
+  const outcome = F.act(s); assert.equal(outcome.ok, true); assert.equal(JSON.stringify(outcome.target), '{"x":25,"y":18}');
+  assert.equal(s.plots[18][25].tilled, true); assert.equal(s.plots[18][26].tilled, false);
+});
+check('面前草地可作业时优先面前格不误伤脚下', () => {
+  const s = F.createGame(); s.farmer = { x: 4, y: 10, facing: 'right' };
+  const outcome = F.act(s); assert.equal(JSON.stringify(outcome.target), '{"x":5,"y":10}');
+  assert.equal(s.plots[10][5].tilled, true); assert.equal(s.plots[10][4].tilled, false);
+});
+check('面前种子不足属于资源错误不回退', () => {
+  const s = F.createGame(); s.farmer = { x: 5, y: 10, facing: 'right' }; s.plots[10][6].tilled = true; s.plots[10][5].tilled = true;
+  s.seeds.carrot = 0; F.selectTool(s, 'seed'); const outcome = F.act(s);
+  assert.equal(outcome.ok, false); assert.match(outcome.message, /种子不够/); assert.equal(outcome.noTarget, undefined);
+  assert.equal(s.plots[10][5].crop, null);
+});
+check('双格都无事可做时保留面前格提示', () => {
+  const s = F.createGame(); s.farmer = { x: 11, y: 7, facing: 'down' };
+  const outcome = F.act(s); assert.equal(outcome.ok, false); assert.equal(outcome.message, '这里不能开垦'); assert.equal(outcome.noTarget, true);
+  assert.equal(outcome.target, undefined);
+});
+check('站在资源节点格可直接采集脚下节点', () => {
+  const s = F.createGame(); s.farmer = { x: 18, y: 9, facing: 'up' };
+  const outcome = F.act(s, true); assert.equal(outcome.ok, true); assert.equal(s.resources.wood, 1);
+  assert.equal(JSON.stringify(outcome.target), '{"x":18,"y":9}');
+});
+check('面前采空节点失败时不回退脚下格', () => {
+  const s = F.createGame(); s.farmer = { x: 18, y: 10, facing: 'up' }; s.resourceNodes['tree-1'].charges = 0;
+  const outcome = F.act(s, true); assert.equal(outcome.ok, false); assert.match(outcome.message, /已采空/);
+  assert.equal(outcome.noTarget, undefined); assert.equal(s.plots[10][18].tilled, false);
+});
 console.log(`全部通过：${passed} 项测试。`);

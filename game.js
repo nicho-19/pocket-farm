@@ -308,21 +308,34 @@
     if (battle) { const outcome = F.watchStrike(state, battle, performance.now()); if (outcome.ok) battleFlashUntil = performance.now() + 90; handle(outcome, true); return; }
     const nearby = Object.entries(villagers).find(([, person]) => Math.abs(person.x - state.farmer.x) + Math.abs(person.y - state.farmer.y) <= 1);
     if (nearby) { openVillager(nearby[0]); return; }
-    const target = F.frontCell(state);
-    const node = F.resourceNodeAt(target.x, target.y);
+    const front = F.frontCell(state);
+    const foot = { x: state.farmer.x, y: state.farmer.y };
+    const frontNode = F.resourceNodeAt(front.x, front.y);
+    const footNode = F.resourceNodeAt(foot.x, foot.y);
+    const frontPlot = state.plots[front.y]?.[front.x];
+    const tillable = ['farm', 'grass', 'meadow'].includes(F.terrainAt(front.x, front.y));
+    const matureCrop = frontPlot?.crop && frontPlot.crop.progress >= F.CROPS[frontPlot.crop.type].days;
+    const frontHasAction = frontNode || !state.autoTool && state.tool === 'seed' && frontPlot?.tilled && !frontPlot.crop && !frontPlot.structure ||
+      !state.autoTool && state.tool === 'scythe' && (frontPlot?.crop || frontPlot?.structure) ||
+      !state.autoTool && state.tool === 'hoe' && tillable && !frontPlot?.tilled && !frontPlot?.structure ||
+      state.autoTool && (matureCrop ||
+        frontPlot?.tilled && !frontPlot.crop && !frontPlot.structure || !frontPlot?.tilled && tillable && !frontPlot?.structure);
+    const node = frontNode || (!frontHasAction ? footNode : null);
     if (fishing) {
       const now = performance.now();
       if (fishing.phase !== 'bite' || now > fishing.deadline) {
         fishing = null; enqueueToast('收竿时机不对，鱼跑掉了', 'alert'); sound('error'); return;
       }
       const outcome = F.act(state, true, Math.random);
+      const target = outcome.target ?? front;
       fishing = null;
       sound(outcome.ok ? 'rod' : 'error');
       swingUntil = now + 200; swingTool = 'rod';
       if (outcome.ok) {
         for (let i = 0; i < 8; i++) addParticle(FIELD_X + target.x * TILE + 24, FIELD_Y + target.y * TILE + 20, (i - 4) * 0.018, -0.035 - i % 2 * 0.012, 420, WORLD_COLORS.waterGlint, 'splash');
         handle(outcome, true);
-        if (state.resourceNodes[node.id].charges) castLine(node, now);
+        const caughtNode = F.resourceNodeAt(target.x, target.y);
+        if (caughtNode && state.resourceNodes[caughtNode.id].charges) castLine(caughtNode, now);
         else enqueueToast('这个钓点今天钓空了', 'info');
       } else handle(outcome, true);
       return;
@@ -332,8 +345,10 @@
       castLine(node, performance.now()); return;
     }
     const tool = state.tool;
-    const harvested = state.plots[target.y]?.[target.x]?.crop?.type;
+    const cropsByCell = new Map([front, foot].map(cell => [`${cell.x},${cell.y}`, state.plots[cell.y]?.[cell.x]?.crop?.type]));
     const outcome = state.tool === 'build' && buildChoice ? F.placeBuilding(state, buildChoice) : F.act(state, true, Math.random);
+    const target = outcome.target ?? front;
+    const harvested = cropsByCell.get(`${target.x},${target.y}`);
     if (!outcome.ok && !outcome.message.includes('种子') && state.plots[target.y]?.[target.x]?.tilled && !state.plots[target.y]?.[target.x]?.crop && !state.seeds[state.selectedCrop]) enqueueToast('没有种子了，去商店购买', 'alert');
     sound(outcome.ok ? (outcome.tool || 'seed') : 'error');
     if (!outcome.ok && target.x >= 0 && target.x < F.WIDTH && target.y >= 0 && target.y < F.HEIGHT) shake = { x: target.x, y: target.y, until: performance.now() + 150 };

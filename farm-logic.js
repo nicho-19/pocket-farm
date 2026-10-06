@@ -323,9 +323,10 @@
     return { ...result(true, `采集到了1份${RESOURCES[key].name}`), tool: 'gather', resource: key };
   }
 
-  function act(state, smart, random = Math.random) {
-    const { x, y } = frontCell(state);
-    if (!inBounds(x, y)) return result(false, '前方没有地块');
+  function noTarget(message) { return { ...result(false, message), noTarget: true }; }
+
+  function actAt(state, x, y, smart, random) {
+    if (!inBounds(x, y)) return noTarget('前方没有地块');
     const plot = state.plots[y][x];
     let tool = state.tool;
     const node = resourceNodeAt(x, y);
@@ -333,12 +334,14 @@
       const required = node.kind === 'fish' ? 'rod' : 'gather';
       if (smart && state.autoTool) tool = required;
       if (tool !== required) return result(false, node.kind === 'fish' ? '请改用鱼竿钓鱼' : '请改用采集工具');
-      return gatherNode(state, node, random);
+      const outcome = gatherNode(state, node, random);
+      return outcome.ok ? { ...outcome, target: { x, y } } : outcome;
     }
     let crop = state.selectedCrop;
     let seedSwap = '';
     if (smart && state.autoTool) {
       if (plot.crop && plot.crop.progress >= CROPS[plot.crop.type].days) tool = 'scythe';
+      else if (plot.crop) return noTarget('作物还没有成熟');
       else if (plot.tilled && !plot.crop) {
         tool = 'seed';
         if (state.seeds[crop] < 1) {
@@ -351,15 +354,15 @@
 
     let message;
     if (tool === 'hoe') {
-      if (terrainAt(x, y) !== 'farm') return result(false, '这里只能在农田区开垦');
-      if (plot.structure) return result(false, '这里有防御道具');
-      if (plot.tilled) return result(false, '这块地已经开垦过了');
+      if (!['farm', 'grass', 'meadow'].includes(terrainAt(x, y))) return noTarget('这里不能开垦');
+      if (plot.structure) return noTarget('这里有防御道具');
+      if (plot.tilled) return noTarget('这块地已经开垦过了');
       plot.tilled = true;
       message = '开垦了一块田地';
     } else if (tool === 'seed') {
-      if (plot.structure) return result(false, '这里有防御道具');
-      if (!plot.tilled) return result(false, '先用锄头开垦土地');
-      if (plot.crop) return result(false, '这块地已经有作物了');
+      if (plot.structure) return noTarget('这里有防御道具');
+      if (!plot.tilled) return noTarget('先用锄头开垦土地');
+      if (plot.crop) return noTarget('这块地已经有作物了');
       if (state.seeds[crop] < 1) return result(false, `${CROPS[crop].name}种子不够，去商店购买`);
       state.seeds[crop]--;
       plot.crop = { type: crop, progress: 0 };
@@ -368,9 +371,9 @@
       if (plot.structure) {
         const name = plot.structure === 'fence' ? '木栅栏' : '稻草人';
         plot.structure = null;
-        return { ...result(true, `回收了${name}（不返金币）`), tool };
+        return { ...result(true, `回收了${name}（不返金币）`), tool, target: { x, y } };
       }
-      if (!plot.crop) return result(false, '这里没有作物');
+      if (!plot.crop) return noTarget('这里没有作物');
       const planted = plot.crop;
       if (planted.progress < CROPS[planted.type].days) return result(false, '作物还没有成熟');
       state.bag[planted.type]++;
@@ -378,9 +381,19 @@
       plot.crop = null;
       message = `收获了${CROPS[planted.type].name}，已放入背包`;
     } else if (tool === 'build') {
-      return result(false, '请先在建造面板选择道具');
+      return noTarget('请先在建造面板选择道具');
+    } else {
+      return noTarget(tool === 'rod' ? '这里没有钓点' : '这里没有可采集的资源');
     }
-    return { ...result(true, message), tool };
+    return { ...result(true, message), tool, target: { x, y } };
+  }
+
+  function act(state, smart, random = Math.random) {
+    const front = frontCell(state);
+    const frontOutcome = actAt(state, front.x, front.y, smart, random);
+    if (!frontOutcome.noTarget) return frontOutcome;
+    const footOutcome = actAt(state, state.farmer.x, state.farmer.y, smart, random);
+    return footOutcome.noTarget ? frontOutcome : footOutcome;
   }
 
   function buySeed(state, crop, amount) {
